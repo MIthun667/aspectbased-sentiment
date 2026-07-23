@@ -32,3 +32,9 @@ data/processed/*/test.jsonl
 *.ckpt
 *.bin
 *.safetensors
+
+# Raw datasets and pretrained embeddings
+Laptops_corenlp/
+Restaurants_corenlp/
+Tweets_corenlp/
+glove.txt
