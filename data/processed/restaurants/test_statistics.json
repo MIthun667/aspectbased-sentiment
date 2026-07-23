@@ -1,0 +1,26 @@
+{
+  "domain": "restaurants",
+  "split": "test",
+  "source_sentences": 599,
+  "generated_instances": 1119,
+  "sentences_without_aspects": 0,
+  "multi_aspect_sentences": 315,
+  "invalid_sentences": 0,
+  "invalid_aspects": 0,
+  "label_counts": {
+    "positive": 727,
+    "neutral": 196,
+    "negative": 196
+  },
+  "aspect_count_distribution": {
+    "1": 284,
+    "2": 192,
+    "3": 73,
+    "4": 31,
+    "5": 14,
+    "6": 3,
+    "7": 1,
+    "13": 1
+  },
+  "invalid_messages": []
+}

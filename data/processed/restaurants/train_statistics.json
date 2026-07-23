@@ -1,0 +1,27 @@
+{
+  "domain": "restaurants",
+  "split": "train",
+  "source_sentences": 1980,
+  "generated_instances": 3608,
+  "sentences_without_aspects": 0,
+  "multi_aspect_sentences": 971,
+  "invalid_sentences": 0,
+  "invalid_aspects": 0,
+  "label_counts": {
+    "negative": 807,
+    "positive": 2164,
+    "neutral": 637
+  },
+  "aspect_count_distribution": {
+    "1": 1009,
+    "2": 555,
+    "3": 261,
+    "4": 103,
+    "5": 32,
+    "6": 11,
+    "7": 5,
+    "8": 3,
+    "9": 1
+  },
+  "invalid_messages": []
+}

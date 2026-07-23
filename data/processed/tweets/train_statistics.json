@@ -1,0 +1,19 @@
+{
+  "domain": "tweets",
+  "split": "train",
+  "source_sentences": 6051,
+  "generated_instances": 6051,
+  "sentences_without_aspects": 0,
+  "multi_aspect_sentences": 0,
+  "invalid_sentences": 0,
+  "invalid_aspects": 0,
+  "label_counts": {
+    "negative": 1528,
+    "positive": 1507,
+    "neutral": 3016
+  },
+  "aspect_count_distribution": {
+    "1": 6051
+  },
+  "invalid_messages": []
+}

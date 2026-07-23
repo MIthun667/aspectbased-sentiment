@@ -1,0 +1,149 @@
+{
+  "laptops": {
+    "train": {
+      "domain": "laptops",
+      "split": "train",
+      "source_sentences": 1454,
+      "generated_instances": 2282,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 538,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "neutral": 455,
+        "positive": 976,
+        "negative": 851
+      },
+      "aspect_count_distribution": {
+        "1": 916,
+        "2": 343,
+        "3": 137,
+        "4": 40,
+        "5": 9,
+        "6": 5,
+        "7": 3,
+        "13": 1
+      },
+      "invalid_messages": []
+    },
+    "test": {
+      "domain": "laptops",
+      "split": "test",
+      "source_sentences": 409,
+      "generated_instances": 632,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 150,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "positive": 337,
+        "negative": 128,
+        "neutral": 167
+      },
+      "aspect_count_distribution": {
+        "1": 259,
+        "2": 101,
+        "3": 33,
+        "4": 9,
+        "5": 6,
+        "6": 1
+      },
+      "invalid_messages": []
+    }
+  },
+  "restaurants": {
+    "train": {
+      "domain": "restaurants",
+      "split": "train",
+      "source_sentences": 1980,
+      "generated_instances": 3608,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 971,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "negative": 807,
+        "positive": 2164,
+        "neutral": 637
+      },
+      "aspect_count_distribution": {
+        "1": 1009,
+        "2": 555,
+        "3": 261,
+        "4": 103,
+        "5": 32,
+        "6": 11,
+        "7": 5,
+        "8": 3,
+        "9": 1
+      },
+      "invalid_messages": []
+    },
+    "test": {
+      "domain": "restaurants",
+      "split": "test",
+      "source_sentences": 599,
+      "generated_instances": 1119,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 315,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "positive": 727,
+        "neutral": 196,
+        "negative": 196
+      },
+      "aspect_count_distribution": {
+        "1": 284,
+        "2": 192,
+        "3": 73,
+        "4": 31,
+        "5": 14,
+        "6": 3,
+        "7": 1,
+        "13": 1
+      },
+      "invalid_messages": []
+    }
+  },
+  "tweets": {
+    "train": {
+      "domain": "tweets",
+      "split": "train",
+      "source_sentences": 6051,
+      "generated_instances": 6051,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 0,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "negative": 1528,
+        "positive": 1507,
+        "neutral": 3016
+      },
+      "aspect_count_distribution": {
+        "1": 6051
+      },
+      "invalid_messages": []
+    },
+    "test": {
+      "domain": "tweets",
+      "split": "test",
+      "source_sentences": 677,
+      "generated_instances": 677,
+      "sentences_without_aspects": 0,
+      "multi_aspect_sentences": 0,
+      "invalid_sentences": 0,
+      "invalid_aspects": 0,
+      "label_counts": {
+        "negative": 169,
+        "positive": 172,
+        "neutral": 336
+      },
+      "aspect_count_distribution": {
+        "1": 677
+      },
+      "invalid_messages": []
+    }
+  }
+}

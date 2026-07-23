@@ -1,0 +1,26 @@
+{
+  "domain": "laptops",
+  "split": "train",
+  "source_sentences": 1454,
+  "generated_instances": 2282,
+  "sentences_without_aspects": 0,
+  "multi_aspect_sentences": 538,
+  "invalid_sentences": 0,
+  "invalid_aspects": 0,
+  "label_counts": {
+    "neutral": 455,
+    "positive": 976,
+    "negative": 851
+  },
+  "aspect_count_distribution": {
+    "1": 916,
+    "2": 343,
+    "3": 137,
+    "4": 40,
+    "5": 9,
+    "6": 5,
+    "7": 3,
+    "13": 1
+  },
+  "invalid_messages": []
+}
