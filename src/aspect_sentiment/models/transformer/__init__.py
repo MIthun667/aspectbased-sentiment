@@ -17,6 +17,12 @@ from .evidence_model import (
     EvidenceTransformerClassifierOutput,
     masked_mean_pool,
 )
+from .counterfactual_evidence_dataset import (
+    CounterfactualEvidenceBatch,
+    CounterfactualEvidenceBatchCollator,
+    CounterfactualEvidenceInstance,
+    CounterfactualEvidenceTransformerDataset,
+)
 from .evidence_dataset import (
     EvidenceTransformerBatch,
     EvidenceTransformerBatchCollator,
@@ -81,6 +87,10 @@ __all__ = [
     "EvidencePoolingMode",
     "EvidenceTransformerClassifierOutput",
     "masked_mean_pool",
+    "CounterfactualEvidenceBatch",
+    "CounterfactualEvidenceBatchCollator",
+    "CounterfactualEvidenceInstance",
+    "CounterfactualEvidenceTransformerDataset",
     "EvidenceTransformerBatch",
     "EvidenceTransformerBatchCollator",
     "EvidenceTransformerDataset",
