@@ -119,3 +119,25 @@ def test_loader_rejects_empty_instances(
             num_workers=0,
             reject_truncation=True,
         )
+
+
+def test_deterministic_cublas_environment_is_set() -> None:
+    import os
+
+    assert os.environ[
+        "CUBLAS_WORKSPACE_CONFIG"
+    ] in {
+        ":4096:8",
+        ":16:8",
+    }
+
+
+def test_huggingface_progress_bars_are_disabled() -> None:
+    import os
+
+    assert (
+        os.environ[
+            "HF_HUB_DISABLE_PROGRESS_BARS"
+        ]
+        == "1"
+    )

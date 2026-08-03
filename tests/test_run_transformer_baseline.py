@@ -182,3 +182,25 @@ def test_transformer_configuration_loads() -> None:
         == "deberta_pair_classifier"
     )
     assert config.training.epochs == 3
+
+
+def test_transformer_runner_sets_deterministic_cublas() -> None:
+    import os
+
+    assert os.environ[
+        "CUBLAS_WORKSPACE_CONFIG"
+    ] in {
+        ":4096:8",
+        ":16:8",
+    }
+
+
+def test_transformer_runner_disables_hf_progress() -> None:
+    import os
+
+    assert (
+        os.environ[
+            "HF_HUB_DISABLE_PROGRESS_BARS"
+        ]
+        == "1"
+    )

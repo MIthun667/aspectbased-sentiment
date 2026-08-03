@@ -2,15 +2,38 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any
+
+# Required by deterministic CUDA matrix multiplication.
+# This must be set before the first CUDA operation.
+os.environ.setdefault(
+    "CUBLAS_WORKSPACE_CONFIG",
+    ":4096:8",
+)
+
+# Disable Hugging Face progress bars before importing
+# Transformers or the Hub client.
+os.environ.setdefault(
+    "HF_HUB_DISABLE_PROGRESS_BARS",
+    "1",
+)
 
 import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
+from transformers.utils import (
+    logging as transformers_logging,
+)
+
+# Keep genuine errors visible while suppressing model-loading
+# progress bars and expected unused-head reports.
+transformers_logging.set_verbosity_error()
+transformers_logging.disable_progress_bar()
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
