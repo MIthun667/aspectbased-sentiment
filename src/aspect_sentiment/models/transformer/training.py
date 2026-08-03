@@ -861,11 +861,68 @@ def load_evidence_transformer_checkpoint(
 
 
 from .binding_losses import (
+    CounterfactualBindingLoss,
     EvidenceBindingLoss,
 )
 from .binding_model import (
     EvidenceBindingTransformerClassifier,
 )
+from .compatibility_binding_model import (
+    EvidenceCompatibilityBindingTransformerClassifier,
+)
+from .counterfactual_evidence_dataset import (
+    CounterfactualEvidenceBatch,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CounterfactualBindingTrainingResult:
+    loss: float
+    base_loss: float
+    combined_loss: float
+    context_loss: float
+    evidence_loss: float
+    agreement_loss: float
+
+    random_counterfactual_loss: float
+    random_ranking_loss: float
+    random_probability_margin_loss: float
+
+    cross_counterfactual_loss: float
+    cross_ranking_loss: float
+    cross_probability_margin_loss: float
+
+    number_of_instances: int
+    number_with_evidence: int
+    number_valid_random: int
+    number_valid_cross: int
+
+
+def move_counterfactual_evidence_batch_to_device(
+    batch: CounterfactualEvidenceBatch,
+    *,
+    device: torch.device,
+) -> CounterfactualEvidenceBatch:
+    return CounterfactualEvidenceBatch(
+        selected=(
+            move_evidence_transformer_batch_to_device(
+                batch.selected,
+                device=device,
+            )
+        ),
+        random_same_sentence=(
+            move_evidence_transformer_batch_to_device(
+                batch.random_same_sentence,
+                device=device,
+            )
+        ),
+        shuffled_cross_instance=(
+            move_evidence_transformer_batch_to_device(
+                batch.shuffled_cross_instance,
+                device=device,
+            )
+        ),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -917,6 +974,24 @@ class EvidenceBindingEvaluationResult:
 def _forward_evidence_binding_model(
     *,
     model: EvidenceBindingTransformerClassifier,
+    batch: EvidenceTransformerBatch,
+):
+    return model(
+        input_ids=batch.input_ids,
+        attention_mask=batch.attention_mask,
+        token_type_ids=batch.token_type_ids,
+        aspect_subword_mask=(
+            batch.aspect_subword_mask
+        ),
+        evidence_subword_mask=(
+            batch.evidence_subword_mask
+        ),
+    )
+
+
+def _forward_compatibility_binding_model(
+    *,
+    model: EvidenceCompatibilityBindingTransformerClassifier,
     batch: EvidenceTransformerBatch,
 ):
     return model(
@@ -1107,6 +1182,359 @@ def train_evidence_binding_one_epoch(
         ),
         number_with_evidence=(
             total_with_evidence
+        ),
+    )
+
+
+def train_counterfactual_binding_one_epoch(
+    *,
+    model: EvidenceCompatibilityBindingTransformerClassifier,
+    data_loader: Iterable[
+        CounterfactualEvidenceBatch
+    ],
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    base_objective: EvidenceBindingLoss,
+    counterfactual_objective: (
+        CounterfactualBindingLoss
+    ),
+    device: torch.device,
+    gradient_clip_norm: float,
+    use_bfloat16: bool,
+) -> CounterfactualBindingTrainingResult:
+    if gradient_clip_norm <= 0.0:
+        raise ValueError(
+            "gradient_clip_norm must be positive"
+        )
+
+    model.train()
+
+    total_loss = 0.0
+    total_base_loss = 0.0
+    total_combined_loss = 0.0
+    total_context_loss = 0.0
+    total_evidence_loss = 0.0
+    total_agreement_loss = 0.0
+
+    total_random_counterfactual_loss = 0.0
+    total_random_ranking_loss = 0.0
+    total_random_probability_margin_loss = 0.0
+
+    total_cross_counterfactual_loss = 0.0
+    total_cross_ranking_loss = 0.0
+    total_cross_probability_margin_loss = 0.0
+
+    total_instances = 0
+    total_with_evidence = 0
+    total_valid_random = 0
+    total_valid_cross = 0
+
+    autocast_enabled = (
+        use_bfloat16
+        and device.type == "cuda"
+    )
+
+    for batch in data_loader:
+        device_batch = (
+            move_counterfactual_evidence_batch_to_device(
+                batch,
+                device=device,
+            )
+        )
+
+        optimizer.zero_grad(
+            set_to_none=True
+        )
+
+        with torch.autocast(
+            device_type=device.type,
+            dtype=torch.bfloat16,
+            enabled=autocast_enabled,
+        ):
+            selected_output = (
+                _forward_compatibility_binding_model(
+                    model=model,
+                    batch=device_batch.selected,
+                )
+            )
+
+            random_output = (
+                _forward_compatibility_binding_model(
+                    model=model,
+                    batch=(
+                        device_batch
+                        .random_same_sentence
+                    ),
+                )
+            )
+
+            cross_output = (
+                _forward_compatibility_binding_model(
+                    model=model,
+                    batch=(
+                        device_batch
+                        .shuffled_cross_instance
+                    ),
+                )
+            )
+
+            base_loss_output = base_objective(
+                selected_output,
+                device_batch.selected.labels,
+                evidence_is_empty=(
+                    device_batch.selected
+                    .evidence_is_empty
+                ),
+            )
+
+            selected_available = (
+                ~device_batch.selected
+                .evidence_is_empty
+            )
+
+            random_available = (
+                ~device_batch
+                .random_same_sentence
+                .evidence_is_empty
+            )
+
+            cross_available = (
+                ~device_batch
+                .shuffled_cross_instance
+                .evidence_is_empty
+            )
+
+            random_changed = (
+                device_batch
+                .random_same_sentence
+                .evidence_subword_mask
+                != device_batch.selected
+                .evidence_subword_mask
+            ).any(dim=1)
+
+            cross_changed = (
+                device_batch
+                .shuffled_cross_instance
+                .evidence_subword_mask
+                != device_batch.selected
+                .evidence_subword_mask
+            ).any(dim=1)
+
+            random_valid = (
+                selected_available
+                & random_available
+                & random_changed
+            )
+
+            cross_valid = (
+                selected_available
+                & cross_available
+                & cross_changed
+            )
+
+            random_loss_output = (
+                counterfactual_objective(
+                    selected_output=(
+                        selected_output
+                    ),
+                    corrupted_output=(
+                        random_output
+                    ),
+                    labels=(
+                        device_batch
+                        .selected
+                        .labels
+                    ),
+                    valid_mask=random_valid,
+                )
+            )
+
+            cross_loss_output = (
+                counterfactual_objective(
+                    selected_output=(
+                        selected_output
+                    ),
+                    corrupted_output=(
+                        cross_output
+                    ),
+                    labels=(
+                        device_batch
+                        .selected
+                        .labels
+                    ),
+                    valid_mask=cross_valid,
+                )
+            )
+
+            loss = (
+                base_loss_output.loss
+                + random_loss_output.loss
+                + cross_loss_output.loss
+            )
+
+        if not torch.isfinite(loss):
+            raise FloatingPointError(
+                "Non-finite counterfactual "
+                "binding training loss"
+            )
+
+        loss.backward()
+
+        clip_grad_norm_(
+            model.parameters(),
+            max_norm=gradient_clip_norm,
+            error_if_nonfinite=True,
+            foreach=False,
+        )
+
+        optimizer.step()
+        scheduler.step()
+
+        batch_size = int(
+            device_batch
+            .selected
+            .labels
+            .shape[0]
+        )
+
+        def weighted(
+            value: torch.Tensor,
+        ) -> float:
+            return (
+                float(
+                    value.detach().cpu()
+                )
+                * batch_size
+            )
+
+        total_loss += weighted(loss)
+        total_base_loss += weighted(
+            base_loss_output.loss
+        )
+
+        total_combined_loss += weighted(
+            base_loss_output.combined_loss
+        )
+
+        total_context_loss += weighted(
+            base_loss_output.context_loss
+        )
+
+        total_evidence_loss += weighted(
+            base_loss_output.evidence_loss
+        )
+
+        total_agreement_loss += weighted(
+            base_loss_output.agreement_loss
+        )
+
+        total_random_counterfactual_loss += (
+            weighted(
+                random_loss_output.loss
+            )
+        )
+
+        total_random_ranking_loss += weighted(
+            random_loss_output.ranking_loss
+        )
+
+        total_random_probability_margin_loss += (
+            weighted(
+                random_loss_output
+                .probability_margin_loss
+            )
+        )
+
+        total_cross_counterfactual_loss += (
+            weighted(
+                cross_loss_output.loss
+            )
+        )
+
+        total_cross_ranking_loss += weighted(
+            cross_loss_output.ranking_loss
+        )
+
+        total_cross_probability_margin_loss += (
+            weighted(
+                cross_loss_output
+                .probability_margin_loss
+            )
+        )
+
+        total_instances += batch_size
+
+        total_with_evidence += (
+            base_loss_output
+            .number_with_evidence
+        )
+
+        total_valid_random += (
+            random_loss_output
+            .number_valid
+        )
+
+        total_valid_cross += (
+            cross_loss_output
+            .number_valid
+        )
+
+    if total_instances == 0:
+        raise ValueError(
+            "Training loader produced no instances"
+        )
+
+    def average(
+        total: float,
+    ) -> float:
+        return total / total_instances
+
+    return CounterfactualBindingTrainingResult(
+        loss=average(total_loss),
+        base_loss=average(
+            total_base_loss
+        ),
+        combined_loss=average(
+            total_combined_loss
+        ),
+        context_loss=average(
+            total_context_loss
+        ),
+        evidence_loss=average(
+            total_evidence_loss
+        ),
+        agreement_loss=average(
+            total_agreement_loss
+        ),
+        random_counterfactual_loss=average(
+            total_random_counterfactual_loss
+        ),
+        random_ranking_loss=average(
+            total_random_ranking_loss
+        ),
+        random_probability_margin_loss=average(
+            total_random_probability_margin_loss
+        ),
+        cross_counterfactual_loss=average(
+            total_cross_counterfactual_loss
+        ),
+        cross_ranking_loss=average(
+            total_cross_ranking_loss
+        ),
+        cross_probability_margin_loss=average(
+            total_cross_probability_margin_loss
+        ),
+        number_of_instances=(
+            total_instances
+        ),
+        number_with_evidence=(
+            total_with_evidence
+        ),
+        number_valid_random=(
+            total_valid_random
+        ),
+        number_valid_cross=(
+            total_valid_cross
         ),
     )
 

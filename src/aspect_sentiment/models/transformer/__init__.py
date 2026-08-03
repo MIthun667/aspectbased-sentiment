@@ -46,11 +46,13 @@ from .model import (
     TransformerClassifierOutput,
 )
 from .training import (
+    CounterfactualBindingTrainingResult,
     EvidenceBindingEvaluationResult,
     EvidenceBindingTrainingResult,
     evaluate_evidence_binding_model,
     load_evidence_binding_checkpoint,
     save_evidence_binding_checkpoint,
+    train_counterfactual_binding_one_epoch,
     train_evidence_binding_one_epoch,
     TransformerEvaluationResult,
     TransformerTrainingState,
@@ -69,11 +71,13 @@ from .training import (
 )
 
 __all__ = [
+    "CounterfactualBindingTrainingResult",
     "EvidenceBindingEvaluationResult",
     "EvidenceBindingTrainingResult",
     "evaluate_evidence_binding_model",
     "load_evidence_binding_checkpoint",
     "save_evidence_binding_checkpoint",
+    "train_counterfactual_binding_one_epoch",
     "train_evidence_binding_one_epoch",
     "CounterfactualBindingLoss",
     "CounterfactualBindingLossOutput",
