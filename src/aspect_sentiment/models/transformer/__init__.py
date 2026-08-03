@@ -1,3 +1,10 @@
+from .evidence_model import (
+    SUPPORTED_EVIDENCE_POOLING_MODES,
+    EvidenceAwareTransformerClassifier,
+    EvidencePoolingMode,
+    EvidenceTransformerClassifierOutput,
+    masked_mean_pool,
+)
 from .evidence_dataset import (
     EvidenceTransformerBatch,
     EvidenceTransformerBatchCollator,
@@ -21,14 +28,29 @@ from .training import (
     TransformerTrainingState,
     build_linear_warmup_scheduler,
     build_transformer_optimizer,
+    evaluate_evidence_transformer_model,
     evaluate_transformer_model,
+    load_evidence_transformer_checkpoint,
     load_transformer_checkpoint,
+    move_evidence_transformer_batch_to_device,
     move_transformer_batch_to_device,
+    save_evidence_transformer_checkpoint,
     save_transformer_checkpoint,
+    train_evidence_transformer_one_epoch,
     train_transformer_one_epoch,
 )
 
 __all__ = [
+    "evaluate_evidence_transformer_model",
+    "load_evidence_transformer_checkpoint",
+    "move_evidence_transformer_batch_to_device",
+    "save_evidence_transformer_checkpoint",
+    "train_evidence_transformer_one_epoch",
+    "SUPPORTED_EVIDENCE_POOLING_MODES",
+    "EvidenceAwareTransformerClassifier",
+    "EvidencePoolingMode",
+    "EvidenceTransformerClassifierOutput",
+    "masked_mean_pool",
     "EvidenceTransformerBatch",
     "EvidenceTransformerBatchCollator",
     "EvidenceTransformerDataset",
