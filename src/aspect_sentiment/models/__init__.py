@@ -8,6 +8,11 @@ from .neural import (
     TargetAwareBiLSTM,
     Vocabulary,
 )
+from .transformer import (
+    TransformerAspectClassifier,
+    TransformerAspectDataset,
+    TransformerBatchCollator,
+)
 
 __all__ = [
     "AspectSentimentDataset",
@@ -15,5 +20,8 @@ __all__ = [
     "NeuralBatchCollator",
     "TargetAwareBiLSTM",
     "TfidfLogisticRegressionBaseline",
+    "TransformerAspectClassifier",
+    "TransformerAspectDataset",
+    "TransformerBatchCollator",
     "Vocabulary",
 ]
