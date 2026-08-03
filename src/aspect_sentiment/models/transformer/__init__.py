@@ -1,3 +1,11 @@
+from .binding_model import (
+    EvidenceBindingTransformerClassifier,
+    EvidenceBindingTransformerOutput,
+)
+from .binding_losses import (
+    EvidenceBindingLoss,
+    EvidenceBindingLossOutput,
+)
 from .evidence_model import (
     SUPPORTED_EVIDENCE_POOLING_MODES,
     EvidenceAwareTransformerClassifier,
@@ -24,6 +32,12 @@ from .model import (
     TransformerClassifierOutput,
 )
 from .training import (
+    EvidenceBindingEvaluationResult,
+    EvidenceBindingTrainingResult,
+    evaluate_evidence_binding_model,
+    load_evidence_binding_checkpoint,
+    save_evidence_binding_checkpoint,
+    train_evidence_binding_one_epoch,
     TransformerEvaluationResult,
     TransformerTrainingState,
     build_linear_warmup_scheduler,
@@ -41,6 +55,16 @@ from .training import (
 )
 
 __all__ = [
+    "EvidenceBindingEvaluationResult",
+    "EvidenceBindingTrainingResult",
+    "evaluate_evidence_binding_model",
+    "load_evidence_binding_checkpoint",
+    "save_evidence_binding_checkpoint",
+    "train_evidence_binding_one_epoch",
+    "EvidenceBindingLoss",
+    "EvidenceBindingLossOutput",
+    "EvidenceBindingTransformerClassifier",
+    "EvidenceBindingTransformerOutput",
     "evaluate_evidence_transformer_model",
     "load_evidence_transformer_checkpoint",
     "move_evidence_transformer_batch_to_device",
