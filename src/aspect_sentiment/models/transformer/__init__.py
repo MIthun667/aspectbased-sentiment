@@ -1,3 +1,9 @@
+from .evidence_dataset import (
+    EvidenceTransformerBatch,
+    EvidenceTransformerBatchCollator,
+    EvidenceTransformerDataset,
+    EvidenceTransformerInstance,
+)
 from .dataset import (
     TransformerAspectDataset,
     TransformerBatch,
@@ -23,6 +29,10 @@ from .training import (
 )
 
 __all__ = [
+    "EvidenceTransformerBatch",
+    "EvidenceTransformerBatchCollator",
+    "EvidenceTransformerDataset",
+    "EvidenceTransformerInstance",
     "TransformerAspectClassifier",
     "TransformerAspectDataset",
     "TransformerBatch",

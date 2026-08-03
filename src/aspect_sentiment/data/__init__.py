@@ -1,3 +1,7 @@
+from .subword_alignment import (
+    SubwordAlignment,
+    align_words_to_subwords,
+)
 from .evidence_dataset import (
     load_evidence_jsonl,
     EvidenceAwareDataset,
@@ -13,6 +17,8 @@ from .loader import (
 )
 
 __all__ = [
+    "SubwordAlignment",
+    "align_words_to_subwords",
     "load_evidence_jsonl",
     "EvidenceAwareDataset",
     "EvidenceAwareInstance",
