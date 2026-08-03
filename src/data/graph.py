@@ -234,3 +234,70 @@ def graph_depth(
 
     reachable = [distance for distance in distances if distance >= 0]
     return max(reachable, default=0)
+
+
+def all_pairs_shortest_distances(
+    dependency_heads: list[int],
+    *,
+    maximum_distance: int | None = None,
+) -> list[list[int]]:
+    """
+    Compute undirected shortest-path distances between every token pair.
+
+    Parameters
+    ----------
+    dependency_heads:
+        Canonical zero-based dependency heads. A value of -1 denotes a root.
+
+    maximum_distance:
+        Optional clipping threshold. If provided, distances larger than this
+        value are replaced by the threshold. Unreachable tokens are also
+        represented by this threshold.
+
+    Returns
+    -------
+    list[list[int]]
+        A square token-by-token shortest-path distance matrix.
+    """
+    number_of_tokens = len(dependency_heads)
+
+    adjacency = build_undirected_adjacency(
+        number_of_tokens=number_of_tokens,
+        dependency_heads=dependency_heads,
+    )
+
+    matrix: list[list[int]] = []
+
+    for source in range(number_of_tokens):
+        distances = [-1] * number_of_tokens
+        distances[source] = 0
+
+        queue: deque[int] = deque([source])
+
+        while queue:
+            current = queue.popleft()
+
+            for neighbor in adjacency[current]:
+                if distances[neighbor] != -1:
+                    continue
+
+                distances[neighbor] = distances[current] + 1
+                queue.append(neighbor)
+
+        if maximum_distance is not None:
+            distances = [
+                maximum_distance
+                if distance == -1 or distance > maximum_distance
+                else distance
+                for distance in distances
+            ]
+        else:
+            unreachable_value = number_of_tokens + 1
+            distances = [
+                unreachable_value if distance == -1 else distance
+                for distance in distances
+            ]
+
+        matrix.append(distances)
+
+    return matrix

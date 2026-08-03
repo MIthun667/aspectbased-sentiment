@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "maximum_distance": 5,
+  "graph_source_policy": "Dependency heads are authoritative. Legacy short matrices are used only for verification.",
+  "results": [
+    {
+      "domain": "laptops",
+      "split": "train",
+      "base_records": 1454,
+      "write_records": 1454,
+      "compared_records": 1454,
+      "matching_records": 1454,
+      "mismatching_records": 0,
+      "skipped": false,
+      "status": "PASS",
+      "messages": []
+    },
+    {
+      "domain": "laptops",
+      "split": "test",
+      "base_records": 409,
+      "write_records": 409,
+      "compared_records": 409,
+      "matching_records": 409,
+      "mismatching_records": 0,
+      "skipped": false,
+      "status": "PASS",
+      "messages": []
+    },
+    {
+      "domain": "restaurants",
+      "split": "train",
+      "base_records": 1980,
+      "write_records": 1,
+      "compared_records": 0,
+      "matching_records": 0,
+      "mismatching_records": 0,
+      "skipped": true,
+      "status": "UNUSABLE",
+      "messages": [
+        "Pair is unusable because record counts differ: base=1980, write=1."
+      ]
+    },
+    {
+      "domain": "restaurants",
+      "split": "test",
+      "base_records": 599,
+      "write_records": 599,
+      "compared_records": 599,
+      "matching_records": 599,
+      "mismatching_records": 0,
+      "skipped": false,
+      "status": "PASS",
+      "messages": []
+    },
+    {
+      "domain": "tweets",
+      "split": "train",
+      "base_records": 6051,
+      "write_records": 6051,
+      "compared_records": 6051,
+      "matching_records": 6051,
+      "mismatching_records": 0,
+      "skipped": false,
+      "status": "PASS",
+      "messages": []
+    },
+    {
+      "domain": "tweets",
+      "split": "test",
+      "base_records": 677,
+      "write_records": 677,
+      "compared_records": 677,
+      "matching_records": 677,
+      "mismatching_records": 0,
+      "skipped": false,
+      "status": "PASS",
+      "messages": []
+    }
+  ],
+  "summary": {
+    "passed_pairs": 5,
+    "failed_pairs": 0,
+    "unusable_pairs": 1,
+    "matching_records": 9190,
+    "mismatching_records": 0
+  }
+}

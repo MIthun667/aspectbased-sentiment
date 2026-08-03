@@ -47,3 +47,61 @@ def test_shortest_aspect_distances() -> None:
     )
 
     assert distances == [2, 1, 0, 1]
+
+
+def test_all_pairs_shortest_distances() -> None:
+    from src.data.graph import all_pairs_shortest_distances
+
+    # Tree:
+    #
+    # 0 -- 1 -- 2
+    #      |
+    #      3
+    dependency_heads = [1, -1, 1, 1]
+
+    observed = all_pairs_shortest_distances(
+        dependency_heads
+    )
+
+    expected = [
+        [0, 1, 2, 2],
+        [1, 0, 1, 1],
+        [2, 1, 0, 2],
+        [2, 1, 2, 0],
+    ]
+
+    assert observed == expected
+
+
+def test_all_pairs_shortest_distances_clipping() -> None:
+    from src.data.graph import all_pairs_shortest_distances
+
+    # Chain: 0 -- 1 -- 2 -- 3 -- 4 -- 5
+    dependency_heads = [-1, 0, 1, 2, 3, 4]
+
+    observed = all_pairs_shortest_distances(
+        dependency_heads,
+        maximum_distance=3,
+    )
+
+    assert observed[0] == [0, 1, 2, 3, 3, 3]
+    assert observed[5] == [3, 3, 3, 2, 1, 0]
+
+
+def test_all_pairs_matrix_is_symmetric() -> None:
+    from src.data.graph import all_pairs_shortest_distances
+
+    dependency_heads = [1, -1, 1, 2, 2]
+
+    matrix = all_pairs_shortest_distances(
+        dependency_heads
+    )
+
+    for row_index, row in enumerate(matrix):
+        assert row[row_index] == 0
+
+        for column_index in range(len(matrix)):
+            assert (
+                matrix[row_index][column_index]
+                == matrix[column_index][row_index]
+            )
