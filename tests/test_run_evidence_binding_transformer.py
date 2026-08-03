@@ -56,6 +56,10 @@ def make_result():
         mean_gate_value=0.3,
         gate_standard_deviation=0.1,
         mean_available_gate_value=0.4,
+        available_gate_standard_deviation=0.05,
+        instance_gate_mean_standard_deviation=0.02,
+        minimum_available_gate_value=0.1,
+        maximum_available_gate_value=0.8,
         number_of_instances=2,
         number_with_evidence=1,
         combined_predictions=np.asarray(
@@ -156,6 +160,34 @@ def test_binding_metric_payload() -> None:
     assert (
         payload["gate"]["mean"]
         == 0.3
+    )
+
+    assert (
+        payload["gate"][
+            "available_standard_deviation"
+        ]
+        == 0.05
+    )
+
+    assert (
+        payload["gate"][
+            "instance_mean_standard_deviation"
+        ]
+        == 0.02
+    )
+
+    assert (
+        payload["gate"][
+            "minimum_available"
+        ]
+        == 0.1
+    )
+
+    assert (
+        payload["gate"][
+            "maximum_available"
+        ]
+        == 0.8
     )
 
     assert (

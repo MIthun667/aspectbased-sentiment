@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ from src.aspect_sentiment.data import (
 )
 from src.aspect_sentiment.evaluation import (
     ID_TO_POLARITY,
+    compute_classification_metrics,
     compute_intervention_metrics,
 )
 from src.aspect_sentiment.evidence import (
@@ -53,7 +55,11 @@ from src.aspect_sentiment.evidence import (
 )
 from src.aspect_sentiment.models.transformer import (
     EvidenceAwareTransformerClassifier,
+    EvidenceBindingLoss,
+    EvidenceBindingTransformerClassifier,
+    evaluate_evidence_binding_model,
     evaluate_evidence_transformer_model,
+    load_evidence_binding_checkpoint,
     load_evidence_transformer_checkpoint,
 )
 from src.aspect_sentiment.utils import (
@@ -69,6 +75,95 @@ INTERVENTIONS = (
     EvidenceIntervention.RANDOM_SAME_SENTENCE,
     EvidenceIntervention.SHUFFLED_CROSS_INSTANCE,
 )
+
+
+SUPPORTED_CHECKPOINT_TYPES = frozenset(
+    {
+        "evidence_transformer",
+        "evidence_binding_transformer",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class InterventionHeadResult:
+    metrics: dict[str, Any]
+    predictions: np.ndarray
+    probabilities: np.ndarray
+    labels: np.ndarray
+
+
+def normalized_evaluation_heads(
+    result,
+    *,
+    checkpoint_type: str,
+) -> dict[str, InterventionHeadResult]:
+    if checkpoint_type == "evidence_transformer":
+        return {
+            "combined": InterventionHeadResult(
+                metrics=dict(result.metrics),
+                predictions=result.predictions,
+                probabilities=result.probabilities,
+                labels=result.labels,
+            )
+        }
+
+    if checkpoint_type == (
+        "evidence_binding_transformer"
+    ):
+        heads = {
+            "combined": InterventionHeadResult(
+                metrics=dict(
+                    result.combined_metrics
+                ),
+                predictions=(
+                    result.combined_predictions
+                ),
+                probabilities=(
+                    result.combined_probabilities
+                ),
+                labels=result.labels,
+            ),
+            "context": InterventionHeadResult(
+                metrics=dict(
+                    result.context_metrics
+                ),
+                predictions=(
+                    result.context_predictions
+                ),
+                probabilities=(
+                    result.context_probabilities
+                ),
+                labels=result.labels,
+            ),
+        }
+
+        heads["evidence"] = (
+            InterventionHeadResult(
+                metrics=(
+                    dict(
+                        result.evidence_metrics
+                    )
+                    if result.evidence_metrics
+                    is not None
+                    else {}
+                ),
+                predictions=(
+                    result.evidence_predictions
+                ),
+                probabilities=(
+                    result.evidence_probabilities
+                ),
+                labels=result.labels,
+            )
+        )
+
+        return heads
+
+    raise ValueError(
+        "Unsupported checkpoint type: "
+        f"{checkpoint_type!r}"
+    )
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -252,6 +347,79 @@ def prepare_output_directory(
     )
 
 
+def classification_metrics_for_head(
+    result: InterventionHeadResult,
+) -> dict[str, Any]:
+    return compute_classification_metrics(
+        result.labels,
+        result.predictions,
+        probabilities=result.probabilities,
+    )
+
+
+def binding_gate_payload(
+    result,
+) -> dict[str, Any] | None:
+    if not hasattr(
+        result,
+        "mean_gate_value",
+    ):
+        return None
+
+    return {
+        "mean": float(
+            result.mean_gate_value
+        ),
+        "standard_deviation": float(
+            result.gate_standard_deviation
+        ),
+        "mean_available": (
+            float(
+                result.mean_available_gate_value
+            )
+            if result.mean_available_gate_value
+            is not None
+            else None
+        ),
+        "available_standard_deviation": (
+            float(
+                result
+                .available_gate_standard_deviation
+            )
+            if result
+            .available_gate_standard_deviation
+            is not None
+            else None
+        ),
+        "instance_mean_standard_deviation": (
+            float(
+                result
+                .instance_gate_mean_standard_deviation
+            )
+            if result
+            .instance_gate_mean_standard_deviation
+            is not None
+            else None
+        ),
+        "minimum_available": (
+            float(
+                result.minimum_available_gate_value
+            )
+            if result.minimum_available_gate_value
+            is not None
+            else None
+        ),
+        "maximum_available": (
+            float(
+                result.maximum_available_gate_value
+            )
+            if result.maximum_available_gate_value
+            is not None
+            else None
+        ),
+    }
+
+
 def validate_model_parameters(
     parameters: dict[str, Any],
 ) -> dict[str, Any]:
@@ -285,6 +453,64 @@ def validate_model_parameters(
         )
 
     return parameters
+
+
+def validate_binding_model_parameters(
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    required = {
+        "number_of_classes",
+        "dropout",
+        "gate_dimension",
+        "maximum_length",
+        "evidence_root",
+        "reject_truncation",
+        "dtype",
+    }
+
+    missing = sorted(
+        required.difference(parameters)
+    )
+
+    if missing:
+        raise ValueError(
+            "Binding checkpoint model parameters "
+            f"are missing fields: {missing}"
+        )
+
+    if int(
+        parameters["gate_dimension"]
+    ) <= 0:
+        raise ValueError(
+            "Binding checkpoint gate_dimension "
+            "must be positive"
+        )
+
+    return parameters
+
+
+def validate_checkpoint_parameters(
+    checkpoint_type: str,
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    if checkpoint_type == (
+        "evidence_transformer"
+    ):
+        return validate_model_parameters(
+            parameters
+        )
+
+    if checkpoint_type == (
+        "evidence_binding_transformer"
+    ):
+        return validate_binding_model_parameters(
+            parameters
+        )
+
+    raise ValueError(
+        "Unsupported checkpoint type: "
+        f"{checkpoint_type!r}"
+    )
 
 
 def paired_prediction_records(
@@ -539,21 +765,29 @@ def run_intervention_evaluation(
         weights_only=False,
     )
 
-    if checkpoint.get(
-        "checkpoint_type"
-    ) != "evidence_transformer":
+    checkpoint_type = str(
+        checkpoint.get(
+            "checkpoint_type",
+            "",
+        )
+    )
+
+    if checkpoint_type not in (
+        SUPPORTED_CHECKPOINT_TYPES
+    ):
         raise ValueError(
-            "Checkpoint is not an evidence "
-            "transformer checkpoint"
+            "Unsupported evidence checkpoint "
+            f"type: {checkpoint_type!r}"
         )
 
     model_parameters = (
-        validate_model_parameters(
+        validate_checkpoint_parameters(
+            checkpoint_type,
             dict(
                 checkpoint[
                     "model_parameters"
                 ]
-            )
+            ),
         )
     )
 
@@ -671,36 +905,116 @@ def run_intervention_evaluation(
         for index in range(len(dataset))
     ]
 
-    model = (
-        EvidenceAwareTransformerClassifier
-        .from_pretrained(
-            model_name_or_path,
-            number_of_classes=int(
-                model_parameters[
-                    "number_of_classes"
-                ]
-            ),
-            mode=str(
-                model_parameters["mode"]
-            ),
-            dropout=float(
-                model_parameters["dropout"]
-            ),
-            local_files_only=(
-                local_files_only
-            ),
-            dtype=torch.float32,
+    binding_objective = None
+    loss_function = None
+
+    if checkpoint_type == (
+        "evidence_transformer"
+    ):
+        model = (
+            EvidenceAwareTransformerClassifier
+            .from_pretrained(
+                model_name_or_path,
+                number_of_classes=int(
+                    model_parameters[
+                        "number_of_classes"
+                    ]
+                ),
+                mode=str(
+                    model_parameters["mode"]
+                ),
+                dropout=float(
+                    model_parameters["dropout"]
+                ),
+                local_files_only=(
+                    local_files_only
+                ),
+                dtype=torch.float32,
+            )
+            .to(device)
         )
-        .to(device)
-    )
 
-    load_evidence_transformer_checkpoint(
-        path=checkpoint_path,
-        model=model,
-        device=device,
-    )
+        load_evidence_transformer_checkpoint(
+            path=checkpoint_path,
+            model=model,
+            device=device,
+        )
 
-    loss_function = nn.CrossEntropyLoss()
+        loss_function = nn.CrossEntropyLoss()
+
+    else:
+        model = (
+            EvidenceBindingTransformerClassifier
+            .from_pretrained(
+                model_name_or_path,
+                number_of_classes=int(
+                    model_parameters[
+                        "number_of_classes"
+                    ]
+                ),
+                dropout=float(
+                    model_parameters["dropout"]
+                ),
+                gate_dimension=int(
+                    model_parameters[
+                        "gate_dimension"
+                    ]
+                ),
+                local_files_only=(
+                    local_files_only
+                ),
+                dtype=torch.float32,
+            )
+            .to(device)
+        )
+
+        load_evidence_binding_checkpoint(
+            path=checkpoint_path,
+            model=model,
+            device=device,
+        )
+
+        loss_parameters = dict(
+            checkpoint.get(
+                "loss_parameters",
+                {},
+            )
+        )
+
+        binding_objective = (
+            EvidenceBindingLoss(
+                combined_weight=float(
+                    loss_parameters.get(
+                        "combined_weight",
+                        1.0,
+                    )
+                ),
+                context_weight=float(
+                    loss_parameters.get(
+                        "context_weight",
+                        0.0,
+                    )
+                ),
+                evidence_weight=float(
+                    loss_parameters.get(
+                        "evidence_weight",
+                        0.0,
+                    )
+                ),
+                agreement_weight=float(
+                    loss_parameters.get(
+                        "agreement_weight",
+                        0.0,
+                    )
+                ),
+                agreement_temperature=float(
+                    loss_parameters.get(
+                        "agreement_temperature",
+                        1.0,
+                    )
+                ),
+            )
+        )
 
     output_root = (
         resolve_output_directory(
@@ -721,6 +1035,7 @@ def run_intervention_evaluation(
 
     intervention_results = {}
     evaluation_results = {}
+    evaluation_head_results = {}
 
     print("=" * 88)
     print("EVIDENCE INTERVENTION EVALUATION")
@@ -728,6 +1043,10 @@ def run_intervention_evaluation(
     print(
         f"Experiment:        "
         f"{experiment_directory}"
+    )
+    print(
+        f"Checkpoint type:   "
+        f"{checkpoint_type}"
     )
     print(
         f"Checkpoint epoch:  "
@@ -780,14 +1099,36 @@ def run_intervention_evaluation(
             )
         )
 
-        evaluation = (
-            evaluate_evidence_transformer_model(
-                model=model,
-                data_loader=loader,
-                loss_function=loss_function,
-                device=device,
-                use_bfloat16=False,
+        if checkpoint_type == (
+            "evidence_transformer"
+        ):
+            assert loss_function is not None
+
+            evaluation = (
+                evaluate_evidence_transformer_model(
+                    model=model,
+                    data_loader=loader,
+                    loss_function=loss_function,
+                    device=device,
+                    use_bfloat16=False,
+                )
             )
+        else:
+            assert binding_objective is not None
+
+            evaluation = (
+                evaluate_evidence_binding_model(
+                    model=model,
+                    data_loader=loader,
+                    objective=binding_objective,
+                    device=device,
+                    use_bfloat16=False,
+                )
+            )
+
+        heads = normalized_evaluation_heads(
+            evaluation,
+            checkpoint_type=checkpoint_type,
         )
 
         intervention_results[
@@ -798,17 +1139,53 @@ def run_intervention_evaluation(
             intervention.value
         ] = evaluation
 
-        print(
+        evaluation_head_results[
+            intervention.value
+        ] = heads
+
+        combined = heads["combined"]
+
+        combined_metrics = (
+            classification_metrics_for_head(
+                combined
+            )
+        )
+
+        line = (
             f"{intervention.value:26s} "
             f"Macro-F1="
-            f"{evaluation.metrics['macro_f1']:.4f} "
+            f"{combined_metrics['macro_f1']:.4f} "
             f"Acc="
-            f"{evaluation.metrics['accuracy']:.4f} "
+            f"{combined_metrics['accuracy']:.4f} "
             f"NLL="
-            f"{evaluation.metrics['negative_log_likelihood']:.4f} "
+            f"{combined_metrics['negative_log_likelihood']:.4f} "
             f"Changed="
             f"{generated.number_changed}"
         )
+
+        if checkpoint_type == (
+            "evidence_binding_transformer"
+        ):
+            context_metrics = (
+                classification_metrics_for_head(
+                    heads["context"]
+                )
+            )
+
+            evidence_metrics = (
+                classification_metrics_for_head(
+                    heads["evidence"]
+                )
+            )
+
+            line += (
+                f" Context-F1="
+                f"{context_metrics['macro_f1']:.4f}"
+                f" Evidence-F1="
+                f"{evidence_metrics['macro_f1']:.4f}"
+            )
+
+        print(line)
 
     original_result = evaluation_results[
         EvidenceIntervention
@@ -826,6 +1203,9 @@ def run_intervention_evaluation(
         ),
         "checkpoint_path": str(
             checkpoint_path
+        ),
+        "checkpoint_type": (
+            checkpoint_type
         ),
         "checkpoint_epoch": int(
             checkpoint["epoch"]
@@ -859,54 +1239,76 @@ def run_intervention_evaluation(
             evaluation_results[name]
         )
 
-        if intervention is (
-            EvidenceIntervention.ORIGINAL
+        original_heads = (
+            evaluation_head_results[
+                EvidenceIntervention
+                .ORIGINAL
+                .value
+            ]
+        )
+
+        current_heads = (
+            evaluation_head_results[name]
+        )
+
+        head_payloads: dict[
+            str,
+            dict[str, Any],
+        ] = {}
+
+        for head_name, original_head in (
+            original_heads.items()
         ):
-            paired_metrics = (
+            current_head = (
+                current_heads[head_name]
+            )
+
+            head_paired_metrics = (
                 compute_intervention_metrics(
                     labels=(
-                        original_result.labels
+                        original_head.labels
                     ),
                     original_predictions=(
-                        original_result
-                        .predictions
+                        original_head.predictions
                     ),
                     original_probabilities=(
-                        original_result
-                        .probabilities
+                        original_head.probabilities
                     ),
                     intervened_predictions=(
-                        original_result
-                        .predictions
+                        current_head.predictions
                     ),
                     intervened_probabilities=(
-                        original_result
-                        .probabilities
+                        current_head.probabilities
                     ),
                 )
             )
-        else:
-            paired_metrics = (
-                compute_intervention_metrics(
-                    labels=(
-                        original_result.labels
-                    ),
-                    original_predictions=(
-                        original_result
-                        .predictions
-                    ),
-                    original_probabilities=(
-                        original_result
-                        .probabilities
-                    ),
-                    intervened_predictions=(
-                        evaluation.predictions
-                    ),
-                    intervened_probabilities=(
-                        evaluation.probabilities
-                    ),
-                )
-            )
+
+            head_payloads[head_name] = {
+                "classification_metrics": (
+                    classification_metrics_for_head(
+                        current_head
+                    )
+                ),
+                "paired_metrics": (
+                    head_paired_metrics
+                ),
+            }
+
+        paired_metrics = (
+            head_payloads[
+                "combined"
+            ][
+                "paired_metrics"
+            ]
+        )
+
+        combined_classification_metrics = (
+            head_payloads[
+                "combined"
+            ][
+                "classification_metrics"
+            ]
+        )
 
         payload = {
             "schema_version": "1.0",
@@ -925,10 +1327,14 @@ def run_intervention_evaluation(
                 generated.number_empty
             ),
             "classification_metrics": (
-                evaluation.metrics
+                combined_classification_metrics
             ),
             "paired_metrics": (
                 paired_metrics
+            ),
+            "heads": head_payloads,
+            "gate": binding_gate_payload(
+                evaluation
             ),
         }
 
@@ -947,10 +1353,14 @@ def run_intervention_evaluation(
                 generated.instances
             ),
             original_result=(
-                original_result
+                original_heads[
+                    "combined"
+                ]
             ),
             intervened_result=(
-                evaluation
+                current_heads[
+                    "combined"
+                ]
             ),
             intervention_name=name,
         )
@@ -961,6 +1371,48 @@ def run_intervention_evaluation(
             / f"{name}.jsonl",
             records,
         )
+
+        if checkpoint_type == (
+            "evidence_binding_transformer"
+        ):
+            for head_name in (
+                "combined",
+                "context",
+                "evidence",
+            ):
+                head_records = (
+                    paired_prediction_records(
+                        original_instances=(
+                            original_instances
+                        ),
+                        intervened_instances=(
+                            generated.instances
+                        ),
+                        original_result=(
+                            original_heads[
+                                head_name
+                            ]
+                        ),
+                        intervened_result=(
+                            current_heads[
+                                head_name
+                            ]
+                        ),
+                        intervention_name=(
+                            f"{name}:{head_name}"
+                        ),
+                    )
+                )
+
+                write_jsonl(
+                    output_root
+                    / "predictions"
+                    / (
+                        f"{name}__"
+                        f"{head_name}.jsonl"
+                    ),
+                    head_records,
+                )
 
         summary["interventions"][
             name
@@ -975,7 +1427,7 @@ def run_intervention_evaluation(
                 generated.number_empty
             ),
             "classification_metrics": (
-                evaluation.metrics
+                combined_classification_metrics
             ),
             "paired_metrics": {
                 key: value
@@ -987,6 +1439,32 @@ def run_intervention_evaluation(
                     "intervened_metrics",
                 }
             },
+            "heads": {
+                head_name: {
+                    "classification_metrics": (
+                        head_value[
+                            "classification_metrics"
+                        ]
+                    ),
+                    "paired_metrics": {
+                        key: value
+                        for key, value in (
+                            head_value[
+                                "paired_metrics"
+                            ].items()
+                        )
+                        if key not in {
+                            "original_metrics",
+                            "intervened_metrics",
+                        }
+                    },
+                }
+                for head_name, head_value
+                in head_payloads.items()
+            },
+            "gate": binding_gate_payload(
+                evaluation
+            ),
         }
 
     write_json(

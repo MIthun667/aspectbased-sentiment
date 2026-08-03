@@ -905,6 +905,10 @@ class EvidenceBindingEvaluationResult:
     mean_gate_value: float
     gate_standard_deviation: float
     mean_available_gate_value: float | None
+    available_gate_standard_deviation: float | None
+    instance_gate_mean_standard_deviation: float | None
+    minimum_available_gate_value: float | None
+    maximum_available_gate_value: float | None
 
     number_of_instances: int
     number_with_evidence: int
@@ -1392,12 +1396,40 @@ def evaluate_evidence_binding_model(
         )
 
     mean_available_gate_value = None
+    available_gate_standard_deviation = None
+    instance_gate_mean_standard_deviation = None
+    minimum_available_gate_value = None
+    maximum_available_gate_value = None
 
     if evidence_available.any():
+        available_gate_values = gate_values[
+            evidence_available
+        ]
+
+        available_instance_gate_means = (
+            available_gate_values.mean(
+                axis=1
+            )
+        )
+
         mean_available_gate_value = float(
-            gate_values[
-                evidence_available
-            ].mean()
+            available_gate_values.mean()
+        )
+
+        available_gate_standard_deviation = float(
+            available_gate_values.std()
+        )
+
+        instance_gate_mean_standard_deviation = float(
+            available_instance_gate_means.std()
+        )
+
+        minimum_available_gate_value = float(
+            available_gate_values.min()
+        )
+
+        maximum_available_gate_value = float(
+            available_gate_values.max()
         )
 
     return EvidenceBindingEvaluationResult(
@@ -1451,6 +1483,18 @@ def evaluate_evidence_binding_model(
         ),
         mean_available_gate_value=(
             mean_available_gate_value
+        ),
+        available_gate_standard_deviation=(
+            available_gate_standard_deviation
+        ),
+        instance_gate_mean_standard_deviation=(
+            instance_gate_mean_standard_deviation
+        ),
+        minimum_available_gate_value=(
+            minimum_available_gate_value
+        ),
+        maximum_available_gate_value=(
+            maximum_available_gate_value
         ),
         number_of_instances=(
             total_instances

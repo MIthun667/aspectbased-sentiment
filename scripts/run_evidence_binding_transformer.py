@@ -148,6 +148,46 @@ def binding_metric_payload(
                 is not None
                 else None
             ),
+            "available_standard_deviation": (
+                float(
+                    result
+                    .available_gate_standard_deviation
+                )
+                if result
+                .available_gate_standard_deviation
+                is not None
+                else None
+            ),
+            "instance_mean_standard_deviation": (
+                float(
+                    result
+                    .instance_gate_mean_standard_deviation
+                )
+                if result
+                .instance_gate_mean_standard_deviation
+                is not None
+                else None
+            ),
+            "minimum_available": (
+                float(
+                    result
+                    .minimum_available_gate_value
+                )
+                if result
+                .minimum_available_gate_value
+                is not None
+                else None
+            ),
+            "maximum_available": (
+                float(
+                    result
+                    .maximum_available_gate_value
+                )
+                if result
+                .maximum_available_gate_value
+                is not None
+                else None
+            ),
         },
         "number_of_instances": int(
             result.number_of_instances

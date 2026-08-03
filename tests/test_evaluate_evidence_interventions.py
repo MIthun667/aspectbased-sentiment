@@ -5,7 +5,10 @@ import pytest
 from types import SimpleNamespace
 
 from scripts.evaluate_evidence_interventions import (
+    normalized_evaluation_heads,
     paired_prediction_records,
+    validate_binding_model_parameters,
+    validate_checkpoint_parameters,
     validate_model_parameters,
 )
 from src.aspect_sentiment.data import (
@@ -225,3 +228,332 @@ def test_identity_mismatch_rejected() -> None:
             intervened_result=result,
             intervention_name="empty",
         )
+
+
+def valid_binding_parameters():
+    return {
+        "number_of_classes": 3,
+        "dropout": 0.1,
+        "gate_dimension": 256,
+        "maximum_length": 128,
+        "evidence_root": (
+            "data/derived/evidence"
+        ),
+        "reject_truncation": True,
+        "dtype": "float32",
+    }
+
+
+def test_valid_binding_parameters() -> None:
+    parameters = (
+        valid_binding_parameters()
+    )
+
+    assert (
+        validate_binding_model_parameters(
+            parameters
+        )
+        == parameters
+    )
+
+
+def test_binding_parameters_require_gate() -> None:
+    parameters = (
+        valid_binding_parameters()
+    )
+
+    del parameters["gate_dimension"]
+
+    with pytest.raises(
+        ValueError,
+        match="missing",
+    ):
+        validate_binding_model_parameters(
+            parameters
+        )
+
+
+def test_checkpoint_parameter_dispatch() -> None:
+    evidence = valid_parameters()
+    binding = valid_binding_parameters()
+
+    assert (
+        validate_checkpoint_parameters(
+            "evidence_transformer",
+            evidence,
+        )
+        == evidence
+    )
+
+    assert (
+        validate_checkpoint_parameters(
+            "evidence_binding_transformer",
+            binding,
+        )
+        == binding
+    )
+
+
+def test_unknown_checkpoint_type_rejected() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Unsupported checkpoint",
+    ):
+        validate_checkpoint_parameters(
+            "unknown",
+            {},
+        )
+
+
+def test_normalized_single_head_result() -> None:
+    result = SimpleNamespace(
+        metrics={
+            "macro_f1": 0.7,
+        },
+        predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        probabilities=np.asarray(
+            [[0.1, 0.2, 0.7]],
+            dtype=np.float64,
+        ),
+        labels=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+    )
+
+    heads = normalized_evaluation_heads(
+        result,
+        checkpoint_type=(
+            "evidence_transformer"
+        ),
+    )
+
+    assert set(heads) == {
+        "combined"
+    }
+
+    assert (
+        heads["combined"]
+        .metrics["macro_f1"]
+        == 0.7
+    )
+
+
+def test_normalized_binding_heads() -> None:
+    labels = np.asarray(
+        [2],
+        dtype=np.int64,
+    )
+
+    result = SimpleNamespace(
+        combined_metrics={
+            "macro_f1": 0.8,
+        },
+        context_metrics={
+            "macro_f1": 0.7,
+        },
+        evidence_metrics={
+            "macro_f1": 0.6,
+        },
+        combined_predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        context_predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        evidence_predictions=np.asarray(
+            [1],
+            dtype=np.int64,
+        ),
+        combined_probabilities=np.asarray(
+            [[0.1, 0.1, 0.8]],
+            dtype=np.float64,
+        ),
+        context_probabilities=np.asarray(
+            [[0.1, 0.2, 0.7]],
+            dtype=np.float64,
+        ),
+        evidence_probabilities=np.asarray(
+            [[0.1, 0.6, 0.3]],
+            dtype=np.float64,
+        ),
+        labels=labels,
+    )
+
+    heads = normalized_evaluation_heads(
+        result,
+        checkpoint_type=(
+            "evidence_binding_transformer"
+        ),
+    )
+
+    assert set(heads) == {
+        "combined",
+        "context",
+        "evidence",
+    }
+
+    assert (
+        heads["combined"]
+        .metrics["macro_f1"]
+        == 0.8
+    )
+
+    assert (
+        heads["context"]
+        .metrics["macro_f1"]
+        == 0.7
+    )
+
+    assert (
+        heads["evidence"]
+        .metrics["macro_f1"]
+        == 0.6
+    )
+
+
+def test_classification_metrics_for_head() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        InterventionHeadResult,
+        classification_metrics_for_head,
+    )
+
+    result = InterventionHeadResult(
+        metrics={},
+        predictions=np.asarray(
+            [0, 1, 2],
+            dtype=np.int64,
+        ),
+        probabilities=np.asarray(
+            [
+                [0.8, 0.1, 0.1],
+                [0.1, 0.8, 0.1],
+                [0.1, 0.1, 0.8],
+            ],
+            dtype=np.float64,
+        ),
+        labels=np.asarray(
+            [0, 1, 2],
+            dtype=np.int64,
+        ),
+    )
+
+    metrics = (
+        classification_metrics_for_head(
+            result
+        )
+    )
+
+    assert metrics["accuracy"] == 1.0
+    assert metrics["macro_f1"] == 1.0
+
+
+def test_binding_gate_payload() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        binding_gate_payload,
+    )
+
+    result = SimpleNamespace(
+        mean_gate_value=0.4,
+        gate_standard_deviation=0.2,
+        mean_available_gate_value=0.5,
+        available_gate_standard_deviation=0.05,
+        instance_gate_mean_standard_deviation=0.01,
+        minimum_available_gate_value=0.2,
+        maximum_available_gate_value=0.8,
+    )
+
+    payload = binding_gate_payload(
+        result
+    )
+
+    assert payload is not None
+    assert payload["mean"] == 0.4
+
+    assert (
+        payload[
+            "instance_mean_standard_deviation"
+        ]
+        == 0.01
+    )
+
+
+def test_gate_payload_absent_for_legacy_result() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        binding_gate_payload,
+    )
+
+    assert (
+        binding_gate_payload(
+            SimpleNamespace()
+        )
+        is None
+    )
+
+
+def test_binding_head_supports_prediction_records() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        InterventionHeadResult,
+    )
+
+    instance = make_instance()
+
+    empty = generate_evidence_intervention(
+        [instance],
+        intervention="empty",
+    ).instances[0]
+
+    original = InterventionHeadResult(
+        metrics={},
+        predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        probabilities=np.asarray(
+            [[0.1, 0.2, 0.7]],
+            dtype=np.float64,
+        ),
+        labels=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+    )
+
+    intervened = InterventionHeadResult(
+        metrics={},
+        predictions=np.asarray(
+            [1],
+            dtype=np.int64,
+        ),
+        probabilities=np.asarray(
+            [[0.2, 0.5, 0.3]],
+            dtype=np.float64,
+        ),
+        labels=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+    )
+
+    records = paired_prediction_records(
+        original_instances=[instance],
+        intervened_instances=[empty],
+        original_result=original,
+        intervened_result=intervened,
+        intervention_name="empty",
+    )
+
+    assert len(records) == 1
+
+    assert records[0][
+        "prediction_flipped"
+    ]
+
+    assert records[0][
+        "gold_probability_change"
+    ] == pytest.approx(-0.4)
