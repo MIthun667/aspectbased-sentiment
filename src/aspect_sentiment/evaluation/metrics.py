@@ -20,6 +20,17 @@ LABEL_NAMES = (
     "positive",
 )
 
+POLARITY_TO_ID = {
+    "negative": 0,
+    "neutral": 1,
+    "positive": 2,
+}
+
+ID_TO_POLARITY = {
+    value: key
+    for key, value in POLARITY_TO_ID.items()
+}
+
 EPSILON = 1e-12
 
 
