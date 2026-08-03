@@ -104,3 +104,15 @@ class MajorityClassBaseline:
         items: Sequence[object],
     ) -> np.ndarray:
         return self.predict(len(items))
+
+    def predict_records(
+        self,
+        records: Sequence[object],
+    ) -> np.ndarray:
+        return self.predict(len(records))
+
+    def predict_proba_records(
+        self,
+        records: Sequence[object],
+    ) -> np.ndarray:
+        return self.predict_proba(len(records))

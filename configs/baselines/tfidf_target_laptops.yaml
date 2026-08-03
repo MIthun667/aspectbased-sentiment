@@ -1,0 +1,45 @@
+schema_version: "1.0"
+
+description: >
+  Target-marked TF-IDF logistic-regression baseline trained
+  and evaluated on the protected Laptop splits.
+
+model:
+  name: tfidf_logistic_regression
+  parameters:
+    representation: target_marked
+    ngram_range:
+      - 1
+      - 2
+    min_df: 2
+    max_features: 50000
+    sublinear_tf: true
+    C: 1.0
+    max_iter: 1000
+
+data:
+  processed_root: data/processed
+  train_domain: laptops
+  evaluation_domains:
+    - laptops
+
+training:
+  seed: 2026
+  epochs: 1
+  batch_size: 32
+  learning_rate: 0.00002
+  weight_decay: 0.0
+  early_stopping_patience: 0
+  selection_metric: macro_f1
+  maximize_selection_metric: true
+
+evaluation:
+  batch_size: 64
+  save_probabilities: true
+  save_predictions: true
+  duplicate_excluded_sensitivity: true
+
+output:
+  root: artifacts/experiments
+  experiment_name: tfidf_target_laptops
+  overwrite: false

@@ -247,6 +247,228 @@ def test_unsupported_model_is_rejected(
 
     with pytest.raises(
         ValueError,
-        match="majority_class",
+        match="Unsupported baseline model",
     ):
         run_experiment(config)
+
+
+@pytest.mark.parametrize(
+    "representation",
+    [
+        "sentence",
+        "target_marked",
+    ],
+)
+def test_run_tfidf_experiment_creates_artifacts(
+    tmp_path: Path,
+    representation: str,
+) -> None:
+    processed_root = tmp_path / "processed"
+
+    write_split(
+        processed_root,
+        "train",
+        [0, 1, 2, 0, 1, 2],
+    )
+    write_split(
+        processed_root,
+        "validation",
+        [0, 1, 2],
+    )
+    write_split(
+        processed_root,
+        "test",
+        [0, 1, 2],
+    )
+
+    config = experiment_config_from_dict(
+        {
+            "schema_version": "1.0",
+            "model": {
+                "name": "tfidf_logistic_regression",
+                "parameters": {
+                    "representation": representation,
+                    "ngram_range": [1, 2],
+                    "min_df": 1,
+                    "max_features": None,
+                    "sublinear_tf": True,
+                    "C": 1.0,
+                    "max_iter": 200,
+                },
+            },
+            "data": {
+                "processed_root": str(
+                    processed_root
+                ),
+                "train_domain": "laptops",
+                "evaluation_domains": [
+                    "laptops"
+                ],
+            },
+            "training": {
+                "seed": 2026,
+                "epochs": 1,
+            },
+            "evaluation": {
+                "duplicate_excluded_sensitivity": False,
+            },
+            "output": {
+                "root": str(
+                    tmp_path / "artifacts"
+                ),
+                "experiment_name": (
+                    f"tfidf_{representation}"
+                ),
+            },
+        }
+    )
+
+    output_directory = run_experiment(
+        config,
+        command="pytest",
+    )
+
+    assert (
+        output_directory
+        / "metrics"
+        / "laptops__validation.json"
+    ).is_file()
+
+    assert (
+        output_directory
+        / "metrics"
+        / "laptops__test.json"
+    ).is_file()
+
+    predictions_path = (
+        output_directory
+        / "predictions"
+        / "laptops__test.jsonl"
+    )
+
+    assert predictions_path.is_file()
+
+    rows = [
+        json.loads(line)
+        for line in predictions_path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert len(rows) == 3
+    assert all(
+        len(row["probabilities"]) == 3
+        for row in rows
+    )
+
+
+@pytest.mark.parametrize(
+    "representation",
+    [
+        "sentence",
+        "target_marked",
+    ],
+)
+def test_run_tfidf_experiment_creates_artifacts(
+    tmp_path: Path,
+    representation: str,
+) -> None:
+    processed_root = tmp_path / "processed"
+
+    write_split(
+        processed_root,
+        "train",
+        [0, 1, 2, 0, 1, 2],
+    )
+    write_split(
+        processed_root,
+        "validation",
+        [0, 1, 2],
+    )
+    write_split(
+        processed_root,
+        "test",
+        [0, 1, 2],
+    )
+
+    config = experiment_config_from_dict(
+        {
+            "schema_version": "1.0",
+            "model": {
+                "name": "tfidf_logistic_regression",
+                "parameters": {
+                    "representation": representation,
+                    "ngram_range": [1, 2],
+                    "min_df": 1,
+                    "max_features": None,
+                    "sublinear_tf": True,
+                    "C": 1.0,
+                    "max_iter": 200,
+                },
+            },
+            "data": {
+                "processed_root": str(
+                    processed_root
+                ),
+                "train_domain": "laptops",
+                "evaluation_domains": [
+                    "laptops"
+                ],
+            },
+            "training": {
+                "seed": 2026,
+                "epochs": 1,
+            },
+            "evaluation": {
+                "duplicate_excluded_sensitivity": False,
+            },
+            "output": {
+                "root": str(
+                    tmp_path / "artifacts"
+                ),
+                "experiment_name": (
+                    f"tfidf_{representation}"
+                ),
+            },
+        }
+    )
+
+    output_directory = run_experiment(
+        config,
+        command="pytest",
+    )
+
+    assert (
+        output_directory
+        / "metrics"
+        / "laptops__validation.json"
+    ).is_file()
+
+    assert (
+        output_directory
+        / "metrics"
+        / "laptops__test.json"
+    ).is_file()
+
+    predictions_path = (
+        output_directory
+        / "predictions"
+        / "laptops__test.jsonl"
+    )
+
+    assert predictions_path.is_file()
+
+    rows = [
+        json.loads(line)
+        for line in predictions_path.read_text(
+            encoding="utf-8"
+        ).splitlines()
+        if line.strip()
+    ]
+
+    assert len(rows) == 3
+    assert all(
+        len(row["probabilities"]) == 3
+        for row in rows
+    )

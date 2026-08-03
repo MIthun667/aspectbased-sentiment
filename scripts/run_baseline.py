@@ -32,6 +32,7 @@ from src.aspect_sentiment.evaluation import (
 )
 from src.aspect_sentiment.models.baselines import (
     MajorityClassBaseline,
+    TfidfLogisticRegressionBaseline,
 )
 from src.aspect_sentiment.utils import (
     print_evaluation_summary,
@@ -123,10 +124,146 @@ def prediction_records(
     return output
 
 
+def build_model(
+    *,
+    config: ExperimentConfig,
+    training_records: list[dict[str, Any]],
+    training_labels: list[int],
+):
+    if config.model.name == "majority_class":
+        model = MajorityClassBaseline.fit(
+            training_labels
+        )
+
+        print(
+            "Fitted majority label:  "
+            f"{ID_TO_POLARITY[model.majority_label_id]}"
+        )
+        print(
+            "Training class counts:  "
+            f"negative={model.class_counts[0]}, "
+            f"neutral={model.class_counts[1]}, "
+            f"positive={model.class_counts[2]}"
+        )
+
+        return model
+
+    if (
+        config.model.name
+        == "tfidf_logistic_regression"
+    ):
+        parameters = dict(
+            config.model.parameters
+        )
+
+        representation = str(
+            parameters.pop(
+                "representation",
+                "sentence",
+            )
+        )
+
+        ngram_range_value = parameters.pop(
+            "ngram_range",
+            (1, 2),
+        )
+
+        if not isinstance(
+            ngram_range_value,
+            (list, tuple),
+        ):
+            raise TypeError(
+                "model.parameters.ngram_range "
+                "must be a sequence"
+            )
+
+        ngram_range = tuple(
+            int(value)
+            for value in ngram_range_value
+        )
+
+        max_features_value = parameters.pop(
+            "max_features",
+            50000,
+        )
+
+        max_features = (
+            None
+            if max_features_value is None
+            else int(max_features_value)
+        )
+
+        model = (
+            TfidfLogisticRegressionBaseline.create(
+                representation=representation,
+                ngram_range=ngram_range,
+                min_df=int(
+                    parameters.pop(
+                        "min_df",
+                        2,
+                    )
+                ),
+                max_features=max_features,
+                sublinear_tf=bool(
+                    parameters.pop(
+                        "sublinear_tf",
+                        True,
+                    )
+                ),
+                C=float(
+                    parameters.pop(
+                        "C",
+                        1.0,
+                    )
+                ),
+                max_iter=int(
+                    parameters.pop(
+                        "max_iter",
+                        1000,
+                    )
+                ),
+                random_state=(
+                    config.training.seed
+                ),
+            )
+        )
+
+        if parameters:
+            raise ValueError(
+                "Unsupported TF-IDF model parameters: "
+                f"{sorted(parameters)}"
+            )
+
+        model.fit(
+            training_records,
+            training_labels,
+        )
+
+        print(
+            "Representation:         "
+            f"{representation}"
+        )
+        print(
+            "TF-IDF vocabulary:      "
+            f"{model.vocabulary_size}"
+        )
+        print(
+            "Training instances:     "
+            f"{len(training_records)}"
+        )
+
+        return model
+
+    raise ValueError(
+        "Unsupported baseline model: "
+        f"{config.model.name!r}"
+    )
+
+
 def evaluate_records(
     *,
     config: ExperimentConfig,
-    model: MajorityClassBaseline,
+    model,
     records: list[dict[str, Any]],
     domain: str,
     split: str,
@@ -139,12 +276,12 @@ def evaluate_records(
 
     labels = labels_from_records(records)
 
-    predictions = model.predict(
-        len(records)
+    predictions = model.predict_records(
+        records
     )
 
-    probabilities = model.predict_proba(
-        len(records)
+    probabilities = model.predict_proba_records(
+        records
     )
 
     metrics = compute_classification_metrics(
@@ -182,7 +319,7 @@ def evaluate_records(
 def evaluate_split(
     *,
     config: ExperimentConfig,
-    model: MajorityClassBaseline,
+    model,
     domain: str,
     split: str,
     writer: ExperimentArtifactWriter,
@@ -212,12 +349,6 @@ def run_experiment(
     seed_everything(
         config.training.seed
     )
-
-    if config.model.name != "majority_class":
-        raise ValueError(
-            "run_baseline.py currently supports only "
-            "model.name='majority_class'"
-        )
 
     print_experiment_summary(
         experiment_name=(
@@ -252,20 +383,12 @@ def run_experiment(
         training_records
     )
 
-    model = MajorityClassBaseline.fit(
-        training_labels
+    model = build_model(
+        config=config,
+        training_records=training_records,
+        training_labels=training_labels,
     )
 
-    print(
-        "Fitted majority label:  "
-        f"{ID_TO_POLARITY[model.majority_label_id]}"
-    )
-    print(
-        "Training class counts:  "
-        f"negative={model.class_counts[0]}, "
-        f"neutral={model.class_counts[1]}, "
-        f"positive={model.class_counts[2]}"
-    )
     print()
 
     best_metric_value: float | None = None
