@@ -1,0 +1,45 @@
+schema_version: "1.0"
+
+description: >
+  DeBERTa-v3-base sentence-aspect pair baseline trained on the
+  protected Laptop training split and selected using validation Macro-F1.
+
+model:
+  name: deberta_pair_classifier
+  parameters:
+    model_name_or_path: microsoft/deberta-v3-base
+    maximum_length: 128
+    dropout: 0.1
+    gradient_clip_norm: 1.0
+    warmup_ratio: 0.1
+    class_weighting: false
+    use_bfloat16: false
+    local_files_only: true
+    num_workers: 0
+
+data:
+  processed_root: data/processed
+  train_domain: laptops
+  evaluation_domains:
+    - laptops
+
+training:
+  seed: 2027
+  epochs: 8
+  batch_size: 16
+  learning_rate: 0.00002
+  weight_decay: 0.01
+  early_stopping_patience: 3
+  selection_metric: macro_f1
+  maximize_selection_metric: true
+
+evaluation:
+  batch_size: 32
+  save_probabilities: true
+  save_predictions: true
+  duplicate_excluded_sensitivity: true
+
+output:
+  root: artifacts/experiments
+  experiment_name: deberta_pair_laptops
+  overwrite: false
