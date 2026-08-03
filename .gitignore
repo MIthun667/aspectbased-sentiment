@@ -40,4 +40,4 @@ Tweets_corenlp/
 glove.txt
 
 # Local audit and experiment logs
-artifacts/
+/artifacts/

@@ -1,0 +1,39 @@
+schema_version: "1.0"
+
+description: >
+  Majority-class baseline trained on the protected Laptop
+  training split and evaluated on Laptop validation and test data.
+
+model:
+  name: majority_class
+  parameters: {}
+
+data:
+  processed_root: data/processed
+  train_domain: laptops
+  evaluation_domains:
+    - laptops
+  train_split: train
+  validation_split: validation
+  test_split: test
+
+training:
+  seed: 2026
+  epochs: 1
+  batch_size: 32
+  learning_rate: 0.00002
+  weight_decay: 0.0
+  early_stopping_patience: 0
+  selection_metric: macro_f1
+  maximize_selection_metric: true
+
+evaluation:
+  batch_size: 64
+  save_probabilities: true
+  save_predictions: true
+  duplicate_excluded_sensitivity: true
+
+output:
+  root: artifacts/experiments
+  experiment_name: majority_laptops
+  overwrite: false
