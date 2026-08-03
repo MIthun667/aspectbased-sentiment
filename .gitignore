@@ -41,3 +41,6 @@ glove.txt
 
 # Local audit and experiment logs
 /artifacts/
+
+# Reproducible generated evidence artifacts
+data/derived/evidence/

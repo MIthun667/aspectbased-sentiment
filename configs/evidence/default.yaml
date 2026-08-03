@@ -1,0 +1,10 @@
+schema_version: 1
+
+candidate_generation:
+  maximum_dependency_distance: 3
+
+selection:
+  minimum_score: 2.5
+  maximum_tokens: 3
+  allow_ties: false
+  exclude_competing_predicate_clauses: true
