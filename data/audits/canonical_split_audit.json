@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "domains": {
+    "laptops": {
+      "splits": {
+        "train_full": {
+          "domain": "laptops",
+          "split": "train_full",
+          "path": "data/processed/laptops/train_full.jsonl",
+          "instances": 2282,
+          "sentences": 1454,
+          "label_counts": {
+            "neutral": 455,
+            "positive": 976,
+            "negative": 851
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "train": {
+          "domain": "laptops",
+          "split": "train",
+          "path": "data/processed/laptops/train.jsonl",
+          "instances": 1928,
+          "sentences": 1231,
+          "label_counts": {
+            "neutral": 385,
+            "positive": 822,
+            "negative": 721
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "validation": {
+          "domain": "laptops",
+          "split": "validation",
+          "path": "data/processed/laptops/validation.jsonl",
+          "instances": 354,
+          "sentences": 223,
+          "label_counts": {
+            "positive": 154,
+            "negative": 130,
+            "neutral": 70
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "test": {
+          "domain": "laptops",
+          "split": "test",
+          "path": "data/processed/laptops/test.jsonl",
+          "instances": 632,
+          "sentences": 409,
+          "label_counts": {
+            "positive": 337,
+            "negative": 128,
+            "neutral": 167
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        }
+      },
+      "partition_errors": [],
+      "overlaps": {
+        "train__validation": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        },
+        "train__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 1,
+          "target_signature_overlap": 1
+        },
+        "validation__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        }
+      }
+    },
+    "restaurants": {
+      "splits": {
+        "train_full": {
+          "domain": "restaurants",
+          "split": "train_full",
+          "path": "data/processed/restaurants/train_full.jsonl",
+          "instances": 3608,
+          "sentences": 1980,
+          "label_counts": {
+            "negative": 807,
+            "positive": 2164,
+            "neutral": 637
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "train": {
+          "domain": "restaurants",
+          "split": "train",
+          "path": "data/processed/restaurants/train.jsonl",
+          "instances": 3022,
+          "sentences": 1672,
+          "label_counts": {
+            "negative": 673,
+            "positive": 1815,
+            "neutral": 534
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "validation": {
+          "domain": "restaurants",
+          "split": "validation",
+          "path": "data/processed/restaurants/validation.jsonl",
+          "instances": 586,
+          "sentences": 308,
+          "label_counts": {
+            "positive": 349,
+            "neutral": 103,
+            "negative": 134
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "test": {
+          "domain": "restaurants",
+          "split": "test",
+          "path": "data/processed/restaurants/test.jsonl",
+          "instances": 1119,
+          "sentences": 599,
+          "label_counts": {
+            "positive": 727,
+            "neutral": 196,
+            "negative": 196
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        }
+      },
+      "partition_errors": [],
+      "overlaps": {
+        "train__validation": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        },
+        "train__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 1,
+          "target_signature_overlap": 1
+        },
+        "validation__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        }
+      }
+    },
+    "tweets": {
+      "splits": {
+        "train_full": {
+          "domain": "tweets",
+          "split": "train_full",
+          "path": "data/processed/tweets/train_full.jsonl",
+          "instances": 6051,
+          "sentences": 6051,
+          "label_counts": {
+            "negative": 1528,
+            "positive": 1507,
+            "neutral": 3016
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "train": {
+          "domain": "tweets",
+          "split": "train",
+          "path": "data/processed/tweets/train.jsonl",
+          "instances": 5144,
+          "sentences": 5144,
+          "label_counts": {
+            "negative": 1299,
+            "neutral": 2564,
+            "positive": 1281
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "validation": {
+          "domain": "tweets",
+          "split": "validation",
+          "path": "data/processed/tweets/validation.jsonl",
+          "instances": 907,
+          "sentences": 907,
+          "label_counts": {
+            "positive": 226,
+            "negative": 229,
+            "neutral": 452
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        },
+        "test": {
+          "domain": "tweets",
+          "split": "test",
+          "path": "data/processed/tweets/test.jsonl",
+          "instances": 677,
+          "sentences": 677,
+          "label_counts": {
+            "negative": 169,
+            "positive": 172,
+            "neutral": 336
+          },
+          "errors": [],
+          "warnings": [],
+          "error_count": 0,
+          "warning_count": 0
+        }
+      },
+      "partition_errors": [],
+      "overlaps": {
+        "train__validation": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        },
+        "train__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 3,
+          "target_signature_overlap": 2
+        },
+        "validation__test": {
+          "sentence_id_overlap": 0,
+          "normalized_text_overlap": 0,
+          "target_signature_overlap": 0
+        }
+      }
+    }
+  },
+  "summary": {
+    "split_errors": 0,
+    "partition_errors": 0,
+    "sentence_id_overlaps": 0,
+    "normalized_text_overlaps": 5,
+    "target_signature_overlaps": 4
+  }
+}

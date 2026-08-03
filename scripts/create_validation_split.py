@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -43,10 +44,24 @@ def write_jsonl(
             file.write("\n")
 
 
+def normalize_tokens(tokens: list[str]) -> str:
+    """
+    Normalize a tokenized sentence for duplicate-aware grouping.
+    """
+    text = " ".join(str(token) for token in tokens)
+    text = text.casefold().strip()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+    return text
+
+
 def sentence_signature(
     records: list[dict[str, Any]],
 ) -> tuple[int, int, int]:
-    counts = Counter(record["polarity"] for record in records)
+    counts = Counter(
+        record["polarity"]
+        for record in records
+    )
 
     return (
         counts.get("negative", 0),
@@ -55,73 +70,203 @@ def sentence_signature(
     )
 
 
+def duplicate_group_key(
+    records: list[dict[str, Any]],
+) -> str:
+    """
+    Return the normalized sentence text shared by one sentence group.
+    """
+    normalized_texts = {
+        normalize_tokens(record["tokens"])
+        for record in records
+    }
+
+    if len(normalized_texts) != 1:
+        raise ValueError(
+            "A sentence_id group contains inconsistent sentence text."
+        )
+
+    return next(iter(normalized_texts))
+
+
 def split_sentence_groups(
     records: list[dict[str, Any]],
     validation_ratio: float,
     seed: int,
+    excluded_validation_texts: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    sentence_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    """
+    Split data by normalized-sentence clusters.
+
+    All aspects from the same source sentence remain together. Exact repeated
+    normalized sentences also remain together, even when they have different
+    source sentence identifiers.
+    """
+    if excluded_validation_texts is None:
+        excluded_validation_texts = set()
+
+    sentence_groups: dict[
+        str,
+        list[dict[str, Any]],
+    ] = defaultdict(list)
 
     for record in records:
-        sentence_groups[record["sentence_id"]].append(record)
+        sentence_groups[
+            record["sentence_id"]
+        ].append(record)
+
+    duplicate_clusters: dict[
+        str,
+        list[str],
+    ] = defaultdict(list)
+
+    for sentence_id, sentence_records in (
+        sentence_groups.items()
+    ):
+        key = duplicate_group_key(sentence_records)
+        duplicate_clusters[key].append(sentence_id)
+
+    cluster_records: dict[
+        str,
+        list[dict[str, Any]],
+    ] = {}
+
+    for cluster_key, sentence_ids in (
+        duplicate_clusters.items()
+    ):
+        cluster_records[cluster_key] = [
+            record
+            for sentence_id in sentence_ids
+            for record in sentence_groups[sentence_id]
+        ]
 
     signature_groups: dict[
         tuple[int, int, int],
         list[str],
     ] = defaultdict(list)
 
-    for sentence_id, sentence_records in sentence_groups.items():
-        signature = sentence_signature(sentence_records)
-        signature_groups[signature].append(sentence_id)
+    for cluster_key, grouped_records in (
+        cluster_records.items()
+    ):
+        signature = sentence_signature(
+            grouped_records
+        )
+        signature_groups[signature].append(
+            cluster_key
+        )
 
     rng = random.Random(seed)
-    validation_sentence_ids: set[str] = set()
+    validation_cluster_keys: set[str] = set()
 
-    for sentence_ids in signature_groups.values():
-        rng.shuffle(sentence_ids)
+    for cluster_keys in signature_groups.values():
+        eligible_cluster_keys = sorted(
+            cluster_key
+            for cluster_key in cluster_keys
+            if cluster_key not in excluded_validation_texts
+        )
+        rng.shuffle(eligible_cluster_keys)
 
-        raw_count = len(sentence_ids) * validation_ratio
+        raw_count = (
+            len(eligible_cluster_keys)
+            * validation_ratio
+        )
         validation_count = int(round(raw_count))
 
-        if len(sentence_ids) > 1:
-            validation_count = max(1, validation_count)
+        if len(eligible_cluster_keys) > 1:
+            validation_count = max(
+                1,
+                validation_count,
+            )
             validation_count = min(
                 validation_count,
-                len(sentence_ids) - 1,
+                len(eligible_cluster_keys) - 1,
             )
         else:
             validation_count = 0
 
-        validation_sentence_ids.update(
-            sentence_ids[:validation_count]
+        validation_cluster_keys.update(
+            eligible_cluster_keys[:validation_count]
         )
+
+    validation_sentence_ids: set[str] = {
+        sentence_id
+        for cluster_key in validation_cluster_keys
+        for sentence_id in duplicate_clusters[
+            cluster_key
+        ]
+    }
 
     train_records: list[dict[str, Any]] = []
     validation_records: list[dict[str, Any]] = []
 
     for record in records:
-        if record["sentence_id"] in validation_sentence_ids:
+        if (
+            record["sentence_id"]
+            in validation_sentence_ids
+        ):
             validation_records.append(record)
         else:
             train_records.append(record)
 
     train_sentence_ids = {
-        record["sentence_id"] for record in train_records
+        record["sentence_id"]
+        for record in train_records
     }
     validation_sentence_ids_check = {
-        record["sentence_id"] for record in validation_records
+        record["sentence_id"]
+        for record in validation_records
     }
 
-    overlap = train_sentence_ids.intersection(
-        validation_sentence_ids_check
+    sentence_overlap = (
+        train_sentence_ids
+        & validation_sentence_ids_check
     )
 
-    if overlap:
+    if sentence_overlap:
         raise RuntimeError(
-            f"Sentence leakage detected: {sorted(overlap)[:5]}"
+            "Sentence leakage detected: "
+            f"{sorted(sentence_overlap)[:5]}"
+        )
+
+    train_texts = {
+        normalize_tokens(record["tokens"])
+        for record in train_records
+    }
+    validation_texts = {
+        normalize_tokens(record["tokens"])
+        for record in validation_records
+    }
+
+    text_overlap = train_texts & validation_texts
+
+    if text_overlap:
+        raise RuntimeError(
+            "Normalized-text leakage detected: "
+            f"{sorted(text_overlap)[:3]}"
         )
 
     return train_records, validation_records
+
+
+
+def assign_split(
+    records: list[dict[str, Any]],
+    split: str,
+) -> list[dict[str, Any]]:
+    """
+    Return copied records with canonical split metadata.
+
+    Sentence and instance identifiers are preserved as stable source
+    identifiers. Only the operational split field is changed.
+    """
+    assigned: list[dict[str, Any]] = []
+
+    for record in records:
+        updated = dict(record)
+        updated["split"] = split
+        assigned.append(updated)
+
+    return assigned
 
 
 def summarize(
@@ -184,10 +329,28 @@ def main() -> None:
 
         records = load_jsonl(source_path)
 
+        test_path = domain_directory / "test.jsonl"
+        test_records = load_jsonl(test_path)
+
+        excluded_validation_texts = {
+            normalize_tokens(record["tokens"])
+            for record in test_records
+        }
+
         train_records, validation_records = split_sentence_groups(
             records=records,
             validation_ratio=args.validation_ratio,
             seed=args.seed,
+            excluded_validation_texts=excluded_validation_texts,
+        )
+
+        train_records = assign_split(
+            train_records,
+            "train",
+        )
+        validation_records = assign_split(
+            validation_records,
+            "validation",
         )
 
         if not full_train_path.exists():

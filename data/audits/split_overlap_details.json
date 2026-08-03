@@ -1,0 +1,322 @@
+{
+  "schema_version": "1.0",
+  "domains": {
+    "laptops": {
+      "train__validation": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      },
+      "train__test": {
+        "text_overlaps": [
+          {
+            "key": "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+            "left": [
+              {
+                "instance_id": "laptops:train:sentence-000615:aspect-00",
+                "sentence_id": "laptops:train:sentence-000615",
+                "split": "train",
+                "text": "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+                "target": "applications",
+                "polarity": "neutral",
+                "aspect_start": 23,
+                "aspect_end": 24
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "laptops:test:sentence-000146:aspect-00",
+                "sentence_id": "laptops:test:sentence-000146",
+                "split": "test",
+                "text": "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+                "target": "applications",
+                "polarity": "neutral",
+                "aspect_start": 23,
+                "aspect_end": 24
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ],
+        "target_overlaps": [
+          {
+            "key": [
+              "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+              "applications"
+            ],
+            "left": [
+              {
+                "instance_id": "laptops:train:sentence-000615:aspect-00",
+                "sentence_id": "laptops:train:sentence-000615",
+                "split": "train",
+                "text": "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+                "target": "applications",
+                "polarity": "neutral",
+                "aspect_start": 23,
+                "aspect_end": 24
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "laptops:test:sentence-000146:aspect-00",
+                "sentence_id": "laptops:test:sentence-000146",
+                "split": "test",
+                "text": "if you want more information on macs i suggest going to apple.com and heading towards the macbook page for more information on the applications.",
+                "target": "applications",
+                "polarity": "neutral",
+                "aspect_start": 23,
+                "aspect_end": 24
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ]
+      },
+      "validation__test": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      }
+    },
+    "restaurants": {
+      "train__validation": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      },
+      "train__test": {
+        "text_overlaps": [
+          {
+            "key": "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+            "left": [
+              {
+                "instance_id": "restaurants:train:sentence-001608:aspect-00",
+                "sentence_id": "restaurants:train:sentence-001608",
+                "split": "train",
+                "text": "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+                "target": "martinis",
+                "polarity": "positive",
+                "aspect_start": 13,
+                "aspect_end": 14
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "restaurants:test:sentence-000391:aspect-00",
+                "sentence_id": "restaurants:test:sentence-000391",
+                "split": "test",
+                "text": "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+                "target": "martinis",
+                "polarity": "positive",
+                "aspect_start": 13,
+                "aspect_end": 14
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ],
+        "target_overlaps": [
+          {
+            "key": [
+              "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+              "martinis"
+            ],
+            "left": [
+              {
+                "instance_id": "restaurants:train:sentence-001608:aspect-00",
+                "sentence_id": "restaurants:train:sentence-001608",
+                "split": "train",
+                "text": "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+                "target": "martinis",
+                "polarity": "positive",
+                "aspect_start": 13,
+                "aspect_end": 14
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "restaurants:test:sentence-000391:aspect-00",
+                "sentence_id": "restaurants:test:sentence-000391",
+                "split": "test",
+                "text": "i would definitely go back -- if only for some of those exotic martinis on the blackboard.",
+                "target": "martinis",
+                "polarity": "positive",
+                "aspect_start": 13,
+                "aspect_end": 14
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ]
+      },
+      "validation__test": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      }
+    },
+    "tweets": {
+      "train__validation": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      },
+      "train__test": {
+        "text_overlaps": [
+          {
+            "key": ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+            "left": [
+              {
+                "instance_id": "tweets:train:sentence-005066:aspect-00",
+                "sentence_id": "tweets:train:sentence-005066",
+                "split": "train",
+                "text": ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+                "target": "sarah palin",
+                "polarity": "neutral",
+                "aspect_start": 9,
+                "aspect_end": 11
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "tweets:test:sentence-000271:aspect-00",
+                "sentence_id": "tweets:test:sentence-000271",
+                "split": "test",
+                "text": ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+                "target": "sarah palin",
+                "polarity": "neutral",
+                "aspect_start": 9,
+                "aspect_end": 11
+              }
+            ],
+            "polarity_conflict": false
+          },
+          {
+            "key": "can you tell steve jobs from bill gates, -- ( i could have done better than 60 % -- fun quiz, )",
+            "left": [
+              {
+                "instance_id": "tweets:train:sentence-005041:aspect-00",
+                "sentence_id": "tweets:train:sentence-005041",
+                "split": "train",
+                "text": "can you tell steve jobs from bill gates, -- ( i could have done better than 60 % -- fun quiz, )",
+                "target": "bill gates",
+                "polarity": "neutral",
+                "aspect_start": 6,
+                "aspect_end": 8
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "tweets:test:sentence-000349:aspect-00",
+                "sentence_id": "tweets:test:sentence-000349",
+                "split": "test",
+                "text": "can you tell steve jobs from bill gates, -- ( i could have done better than 60 % -- fun quiz, )",
+                "target": "steve jobs",
+                "polarity": "neutral",
+                "aspect_start": 3,
+                "aspect_end": 5
+              }
+            ],
+            "polarity_conflict": false
+          },
+          {
+            "key": "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+            "left": [
+              {
+                "instance_id": "tweets:train:sentence-005729:aspect-00",
+                "sentence_id": "tweets:train:sentence-005729",
+                "split": "train",
+                "text": "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+                "target": "micheal jackson",
+                "polarity": "negative",
+                "aspect_start": 7,
+                "aspect_end": 9
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "tweets:test:sentence-000237:aspect-00",
+                "sentence_id": "tweets:test:sentence-000237",
+                "split": "test",
+                "text": "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+                "target": "micheal jackson",
+                "polarity": "negative",
+                "aspect_start": 7,
+                "aspect_end": 9
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ],
+        "target_overlaps": [
+          {
+            "key": [
+              ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+              "sarah palin"
+            ],
+            "left": [
+              {
+                "instance_id": "tweets:train:sentence-005066:aspect-00",
+                "sentence_id": "tweets:train:sentence-005066",
+                "split": "train",
+                "text": ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+                "target": "sarah palin",
+                "polarity": "neutral",
+                "aspect_start": 9,
+                "aspect_end": 11
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "tweets:test:sentence-000271:aspect-00",
+                "sentence_id": "tweets:test:sentence-000271",
+                "split": "test",
+                "text": ": obama winning the nobel peace prize is like sarah palin winning the nobel prize for literature.",
+                "target": "sarah palin",
+                "polarity": "neutral",
+                "aspect_start": 9,
+                "aspect_end": 11
+              }
+            ],
+            "polarity_conflict": false
+          },
+          {
+            "key": [
+              "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+              "micheal jackson"
+            ],
+            "left": [
+              {
+                "instance_id": "tweets:train:sentence-005729:aspect-00",
+                "sentence_id": "tweets:train:sentence-005729",
+                "split": "train",
+                "text": "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+                "target": "micheal jackson",
+                "polarity": "negative",
+                "aspect_start": 7,
+                "aspect_end": 9
+              }
+            ],
+            "right": [
+              {
+                "instance_id": "tweets:test:sentence-000237:aspect-00",
+                "sentence_id": "tweets:test:sentence-000237",
+                "split": "test",
+                "text": "got ta light skin friend look like micheal jackson got ta dark skin friend look like micheal jackson,, lmfao im crying off that rip mj though",
+                "target": "micheal jackson",
+                "polarity": "negative",
+                "aspect_start": 7,
+                "aspect_end": 9
+              }
+            ],
+            "polarity_conflict": false
+          }
+        ]
+      },
+      "validation__test": {
+        "text_overlaps": [],
+        "target_overlaps": []
+      }
+    }
+  },
+  "summary": {
+    "text_overlap_groups": 5,
+    "target_overlap_groups": 4,
+    "polarity_conflicts": 0
+  }
+}
