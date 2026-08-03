@@ -6,6 +6,10 @@ from .binding_losses import (
     EvidenceBindingLoss,
     EvidenceBindingLossOutput,
 )
+from .compatibility_binding_model import (
+    EvidenceCompatibilityBindingOutput,
+    EvidenceCompatibilityBindingTransformerClassifier,
+)
 from .evidence_model import (
     SUPPORTED_EVIDENCE_POOLING_MODES,
     EvidenceAwareTransformerClassifier,
@@ -65,6 +69,8 @@ __all__ = [
     "EvidenceBindingLossOutput",
     "EvidenceBindingTransformerClassifier",
     "EvidenceBindingTransformerOutput",
+    "EvidenceCompatibilityBindingOutput",
+    "EvidenceCompatibilityBindingTransformerClassifier",
     "evaluate_evidence_transformer_model",
     "load_evidence_transformer_checkpoint",
     "move_evidence_transformer_batch_to_device",
