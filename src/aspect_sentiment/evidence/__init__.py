@@ -1,3 +1,10 @@
+from .interventions import (
+    SUPPORTED_EVIDENCE_INTERVENTIONS,
+    EvidenceIntervention,
+    EvidenceInterventionResult,
+    generate_evidence_intervention,
+    replace_instance_evidence,
+)
 from .artifacts import (
     load_weak_evidence_config,
     build_evidence_split,
@@ -60,6 +67,11 @@ from .clauses import (
 )
 
 __all__ = [
+    "SUPPORTED_EVIDENCE_INTERVENTIONS",
+    "EvidenceIntervention",
+    "EvidenceInterventionResult",
+    "generate_evidence_intervention",
+    "replace_instance_evidence",
     "load_weak_evidence_config",
     "build_evidence_split",
     "build_domain_manifest",

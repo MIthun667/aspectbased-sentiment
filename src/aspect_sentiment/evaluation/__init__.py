@@ -1,3 +1,6 @@
+from .intervention_metrics import (
+    compute_intervention_metrics,
+)
 from .metrics import (
     ID_TO_POLARITY,
     LABEL_IDS,
@@ -16,6 +19,7 @@ from .sensitivity import (
 )
 
 __all__ = [
+    "compute_intervention_metrics",
     "ID_TO_POLARITY",
     "LABEL_IDS",
     "LABEL_NAMES",
