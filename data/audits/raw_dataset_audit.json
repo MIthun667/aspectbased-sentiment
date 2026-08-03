@@ -1,8 +1,8 @@
 {
-  "root": "/home/mithun-hossain/Desktop/Aspect_semeval",
+  "schema_version": "1.1",
   "domains": {
     "laptops": {
-      "directory": "/home/mithun-hossain/Desktop/Aspect_semeval/Laptops_corenlp",
+      "directory": "Laptops_corenlp",
       "missing_files": [],
       "files": {
         "test.json": {
@@ -68,7 +68,7 @@
       }
     },
     "restaurants": {
-      "directory": "/home/mithun-hossain/Desktop/Aspect_semeval/Restaurants_corenlp",
+      "directory": "Restaurants_corenlp",
       "missing_files": [],
       "files": {
         "test.json": {
@@ -134,7 +134,7 @@
       }
     },
     "tweets": {
-      "directory": "/home/mithun-hossain/Desktop/Aspect_semeval/Tweets_corenlp",
+      "directory": "Tweets_corenlp",
       "missing_files": [],
       "files": {
         "test.json": {
@@ -200,11 +200,104 @@
       }
     }
   },
+  "pair_audits": {
+    "laptops": {
+      "train": {
+        "domain": "laptops",
+        "split": "train",
+        "base_path": "Laptops_corenlp/train.json",
+        "write_path": "Laptops_corenlp/train_write.json",
+        "base_records": 1454,
+        "write_records": 1454,
+        "matched_records": 1454,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": []
+      },
+      "test": {
+        "domain": "laptops",
+        "split": "test",
+        "base_path": "Laptops_corenlp/test.json",
+        "write_path": "Laptops_corenlp/test_write.json",
+        "base_records": 409,
+        "write_records": 409,
+        "matched_records": 409,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "restaurants": {
+      "train": {
+        "domain": "restaurants",
+        "split": "train",
+        "base_path": "Restaurants_corenlp/train.json",
+        "write_path": "Restaurants_corenlp/train_write.json",
+        "base_records": 1980,
+        "write_records": 1,
+        "matched_records": 0,
+        "error_count": 2,
+        "warning_count": 1,
+        "errors": [
+          "Record-count mismatch: Restaurants_corenlp/train.json has 1980 records, but Restaurants_corenlp/train_write.json has 1 records.",
+          "record=0: base/write content mismatch"
+        ],
+        "warnings": [
+          "Only 0/1 comparable records matched."
+        ]
+      },
+      "test": {
+        "domain": "restaurants",
+        "split": "test",
+        "base_path": "Restaurants_corenlp/test.json",
+        "write_path": "Restaurants_corenlp/test_write.json",
+        "base_records": 599,
+        "write_records": 599,
+        "matched_records": 599,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": []
+      }
+    },
+    "tweets": {
+      "train": {
+        "domain": "tweets",
+        "split": "train",
+        "base_path": "Tweets_corenlp/train.json",
+        "write_path": "Tweets_corenlp/train_write.json",
+        "base_records": 6051,
+        "write_records": 6051,
+        "matched_records": 6051,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": []
+      },
+      "test": {
+        "domain": "tweets",
+        "split": "test",
+        "base_path": "Tweets_corenlp/test.json",
+        "write_path": "Tweets_corenlp/test_write.json",
+        "base_records": 677,
+        "write_records": 677,
+        "matched_records": 677,
+        "error_count": 0,
+        "warning_count": 0,
+        "errors": [],
+        "warnings": []
+      }
+    }
+  },
   "summary": {
     "files": 12,
     "records": 20361,
     "aspects": 25134,
     "tokens": 408200,
-    "errors": 0
+    "record_errors": 0,
+    "pair_errors": 2,
+    "pair_warnings": 1
   }
 }
