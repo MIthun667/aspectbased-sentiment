@@ -241,3 +241,279 @@ class EvidenceBindingLoss(nn.Module):
                 evidence_available.sum().item()
             ),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class CounterfactualBindingLossOutput:
+    loss: torch.Tensor
+    ranking_loss: torch.Tensor
+    probability_margin_loss: torch.Tensor
+    number_valid: int
+
+
+def masked_margin_ranking_loss(
+    *,
+    positive_scores: torch.Tensor,
+    negative_scores: torch.Tensor,
+    valid_mask: torch.Tensor,
+    margin: float = 0.2,
+) -> torch.Tensor:
+    """
+    Require the selected-evidence compatibility
+    score to exceed a corrupted-evidence score.
+
+        positive >= negative + margin
+    """
+    if margin < 0.0:
+        raise ValueError(
+            "margin must be non-negative"
+        )
+
+    if positive_scores.shape != (
+        negative_scores.shape
+    ):
+        raise ValueError(
+            "positive_scores and negative_scores "
+            "must have matching shapes"
+        )
+
+    if positive_scores.ndim == 2:
+        if positive_scores.shape[1] != 1:
+            raise ValueError(
+                "Two-dimensional scores must "
+                "have shape [batch, 1]"
+            )
+
+        positive_scores = (
+            positive_scores.squeeze(-1)
+        )
+
+        negative_scores = (
+            negative_scores.squeeze(-1)
+        )
+
+    elif positive_scores.ndim != 1:
+        raise ValueError(
+            "Scores must have shape [batch] "
+            "or [batch, 1]"
+        )
+
+    if valid_mask.ndim != 1:
+        raise ValueError(
+            "valid_mask must be one-dimensional"
+        )
+
+    if valid_mask.shape != (
+        positive_scores.shape
+    ):
+        raise ValueError(
+            "valid_mask must match score batch"
+        )
+
+    per_instance = torch.relu(
+        margin
+        - positive_scores
+        + negative_scores
+    )
+
+    return EvidenceBindingLoss._masked_mean(
+        per_instance,
+        valid_mask.bool(),
+    )
+
+
+def masked_gold_probability_margin_loss(
+    *,
+    selected_logits: torch.Tensor,
+    corrupted_logits: torch.Tensor,
+    labels: torch.Tensor,
+    valid_mask: torch.Tensor,
+    margin: float = 0.05,
+) -> torch.Tensor:
+    """
+    Require the selected-evidence prediction to
+    assign more probability to the gold label than
+    the corrupted-evidence prediction.
+
+        p_gold(selected)
+        >= p_gold(corrupted) + margin
+    """
+    if margin < 0.0:
+        raise ValueError(
+            "margin must be non-negative"
+        )
+
+    if selected_logits.shape != (
+        corrupted_logits.shape
+    ):
+        raise ValueError(
+            "selected_logits and corrupted_logits "
+            "must have matching shapes"
+        )
+
+    if selected_logits.ndim != 2:
+        raise ValueError(
+            "logits must have shape "
+            "[batch, classes]"
+        )
+
+    batch_size = selected_logits.shape[0]
+
+    if labels.shape != (batch_size,):
+        raise ValueError(
+            "labels must have shape [batch]"
+        )
+
+    if valid_mask.shape != (batch_size,):
+        raise ValueError(
+            "valid_mask must have shape [batch]"
+        )
+
+    selected_probabilities = F.softmax(
+        selected_logits,
+        dim=-1,
+    )
+
+    corrupted_probabilities = F.softmax(
+        corrupted_logits,
+        dim=-1,
+    )
+
+    gold_indices = labels.unsqueeze(-1)
+
+    selected_gold = (
+        selected_probabilities.gather(
+            dim=1,
+            index=gold_indices,
+        )
+        .squeeze(-1)
+    )
+
+    corrupted_gold = (
+        corrupted_probabilities.gather(
+            dim=1,
+            index=gold_indices,
+        )
+        .squeeze(-1)
+    )
+
+    per_instance = torch.relu(
+        margin
+        - selected_gold
+        + corrupted_gold
+    )
+
+    return EvidenceBindingLoss._masked_mean(
+        per_instance,
+        valid_mask.bool(),
+    )
+
+
+class CounterfactualBindingLoss(nn.Module):
+    def __init__(
+        self,
+        *,
+        ranking_weight: float = 0.2,
+        probability_margin_weight: float = 0.2,
+        ranking_margin: float = 0.2,
+        probability_margin: float = 0.05,
+    ) -> None:
+        super().__init__()
+
+        for name, value in {
+            "ranking_weight": ranking_weight,
+            "probability_margin_weight": (
+                probability_margin_weight
+            ),
+            "ranking_margin": ranking_margin,
+            "probability_margin": (
+                probability_margin
+            ),
+        }.items():
+            if value < 0.0:
+                raise ValueError(
+                    f"{name} must be non-negative"
+                )
+
+        if (
+            ranking_weight
+            + probability_margin_weight
+            <= 0.0
+        ):
+            raise ValueError(
+                "At least one counterfactual "
+                "loss weight must be positive"
+            )
+
+        self.ranking_weight = (
+            ranking_weight
+        )
+
+        self.probability_margin_weight = (
+            probability_margin_weight
+        )
+
+        self.ranking_margin = (
+            ranking_margin
+        )
+
+        self.probability_margin = (
+            probability_margin
+        )
+
+    def forward(
+        self,
+        *,
+        selected_output,
+        corrupted_output,
+        labels: torch.Tensor,
+        valid_mask: torch.Tensor,
+    ) -> CounterfactualBindingLossOutput:
+        ranking_loss = (
+            masked_margin_ranking_loss(
+                positive_scores=(
+                    selected_output
+                    .compatibility_score
+                ),
+                negative_scores=(
+                    corrupted_output
+                    .compatibility_score
+                ),
+                valid_mask=valid_mask,
+                margin=self.ranking_margin,
+            )
+        )
+
+        probability_margin_loss = (
+            masked_gold_probability_margin_loss(
+                selected_logits=(
+                    selected_output.logits
+                ),
+                corrupted_logits=(
+                    corrupted_output.logits
+                ),
+                labels=labels,
+                valid_mask=valid_mask,
+                margin=(
+                    self.probability_margin
+                ),
+            )
+        )
+
+        total_loss = (
+            self.ranking_weight
+            * ranking_loss
+            + self.probability_margin_weight
+            * probability_margin_loss
+        )
+
+        return CounterfactualBindingLossOutput(
+            loss=total_loss,
+            ranking_loss=ranking_loss,
+            probability_margin_loss=(
+                probability_margin_loss
+            ),
+            number_valid=int(
+                valid_mask.bool().sum().item()
+            ),
+        )

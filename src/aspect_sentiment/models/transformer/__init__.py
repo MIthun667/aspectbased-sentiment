@@ -3,8 +3,12 @@ from .binding_model import (
     EvidenceBindingTransformerOutput,
 )
 from .binding_losses import (
+    CounterfactualBindingLoss,
+    CounterfactualBindingLossOutput,
     EvidenceBindingLoss,
     EvidenceBindingLossOutput,
+    masked_gold_probability_margin_loss,
+    masked_margin_ranking_loss,
 )
 from .compatibility_binding_model import (
     EvidenceCompatibilityBindingOutput,
@@ -71,6 +75,10 @@ __all__ = [
     "load_evidence_binding_checkpoint",
     "save_evidence_binding_checkpoint",
     "train_evidence_binding_one_epoch",
+    "CounterfactualBindingLoss",
+    "CounterfactualBindingLossOutput",
+    "masked_gold_probability_margin_loss",
+    "masked_margin_ranking_loss",
     "EvidenceBindingLoss",
     "EvidenceBindingLossOutput",
     "EvidenceBindingTransformerClassifier",
