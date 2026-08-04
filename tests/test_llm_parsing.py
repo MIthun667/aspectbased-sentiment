@@ -98,3 +98,50 @@ def test_sentiment_only_mode() -> None:
     assert result.output is not None
     assert result.output.confidence is None
     assert result.output.evidence_indices == ()
+
+
+def test_unsorted_indices_are_recoverable() -> None:
+    from src.aspect_sentiment.models.llm import (
+        parse_recoverable_structured_output,
+    )
+
+    result = (
+        parse_recoverable_structured_output(
+            (
+                '{"sentiment":"positive",'
+                '"evidence_indices":[4,2,3],'
+                '"confidence":0.9}'
+            ),
+            prompt_mode=MODE,
+            number_of_tokens=5,
+        )
+    )
+
+    assert not result.strict_result.valid
+    assert result.recoverable_valid
+    assert result.recovered_output is not None
+    assert (
+        result.recovered_output.evidence_indices
+        == (2, 3, 4)
+    )
+    assert result.recovery_actions == (
+        "sort_and_deduplicate_evidence_indices",
+    )
+
+
+def test_invalid_json_is_not_recoverable() -> None:
+    from src.aspect_sentiment.models.llm import (
+        parse_recoverable_structured_output,
+    )
+
+    result = (
+        parse_recoverable_structured_output(
+            '{"sentiment":negative}',
+            prompt_mode=MODE,
+            number_of_tokens=5,
+        )
+    )
+
+    assert not result.strict_result.valid
+    assert not result.recoverable_valid
+    assert result.recovered_output is None

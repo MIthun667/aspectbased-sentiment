@@ -223,10 +223,16 @@ def parse_structured_output(
             ),
             require_confidence=(
                 prompt_mode
-                == (
-                    "joint_evidence_"
-                    "sentiment_confidence"
-                )
+                in {
+                    (
+                        "joint_evidence_"
+                        "sentiment_confidence"
+                    ),
+                    (
+                        "three_shot_joint_evidence_"
+                        "sentiment_confidence"
+                    ),
+                }
             ),
         )
     except (
@@ -247,4 +253,219 @@ def parse_structured_output(
         error_code=None,
         error_message=None,
         raw_text=raw_text,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RecoverableStructuredOutputResult:
+    strict_result: StructuredOutputParseResult
+    recoverable_valid: bool
+    recovered_output: StructuredABSAOutput | None
+    recovery_actions: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "strict_valid": (
+                self.strict_result.valid
+            ),
+            "strict_error_code": (
+                self.strict_result.error_code
+            ),
+            "recoverable_valid": (
+                self.recoverable_valid
+            ),
+            "recovered_output": (
+                None
+                if self.recovered_output is None
+                else self.recovered_output.to_dict()
+            ),
+            "recovery_actions": list(
+                self.recovery_actions
+            ),
+            "raw_text": (
+                self.strict_result.raw_text
+            ),
+        }
+
+
+def parse_recoverable_structured_output(
+    raw_text: str,
+    *,
+    prompt_mode: str,
+    number_of_tokens: int,
+    strict_keys: bool = True,
+) -> RecoverableStructuredOutputResult:
+    strict_result = parse_structured_output(
+        raw_text,
+        prompt_mode=prompt_mode,
+        number_of_tokens=number_of_tokens,
+        strict_keys=strict_keys,
+    )
+
+    if strict_result.valid:
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=True,
+            recovered_output=(
+                strict_result.output
+            ),
+            recovery_actions=(),
+        )
+
+    try:
+        payload = json.loads(
+            raw_text.strip()
+        )
+    except (
+        json.JSONDecodeError,
+        TypeError,
+    ):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    if not isinstance(payload, dict):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    required_keys = expected_keys(
+        prompt_mode
+    )
+
+    actual_keys = set(payload)
+
+    if required_keys - actual_keys:
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    if (
+        strict_keys
+        and actual_keys - required_keys
+    ):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    evidence_value = payload.get(
+        "evidence_indices",
+        [],
+    )
+
+    if not isinstance(
+        evidence_value,
+        list,
+    ):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        for value in evidence_value
+    ):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=(),
+        )
+
+    recovery_actions = []
+
+    normalized_indices = tuple(
+        sorted(set(evidence_value))
+    )
+
+    if normalized_indices != tuple(
+        evidence_value
+    ):
+        recovery_actions.append(
+            "sort_and_deduplicate_evidence_indices"
+        )
+
+    sentiment = payload.get(
+        "sentiment"
+    )
+
+    if not isinstance(sentiment, str):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=tuple(
+                recovery_actions
+            ),
+        )
+
+    output = StructuredABSAOutput(
+        sentiment=sentiment.strip().lower(),
+        evidence_indices=(
+            normalized_indices
+        ),
+        confidence=payload.get(
+            "confidence"
+        ),
+    )
+
+    try:
+        output.validate(
+            number_of_tokens=(
+                number_of_tokens
+            ),
+            require_evidence=(
+                prompt_mode
+                != "sentiment_only"
+            ),
+            require_confidence=(
+                prompt_mode
+                in {
+                    (
+                        "joint_evidence_"
+                        "sentiment_confidence"
+                    ),
+                    (
+                        "three_shot_joint_evidence_"
+                        "sentiment_confidence"
+                    ),
+                }
+            ),
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        return RecoverableStructuredOutputResult(
+            strict_result=strict_result,
+            recoverable_valid=False,
+            recovered_output=None,
+            recovery_actions=tuple(
+                recovery_actions
+            ),
+        )
+
+    return RecoverableStructuredOutputResult(
+        strict_result=strict_result,
+        recoverable_valid=True,
+        recovered_output=output,
+        recovery_actions=tuple(
+            recovery_actions
+        ),
     )

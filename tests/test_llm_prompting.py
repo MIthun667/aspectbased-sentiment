@@ -77,3 +77,47 @@ def test_prompt_contains_no_concrete_answer_example() -> None:
     assert (
         "numeric value from 0.0 to 1.0"
     ) in prompt
+
+
+def test_three_shot_messages_include_demonstrations() -> None:
+    messages = build_chat_messages(
+        make_instance(),
+        prompt_mode=(
+            "three_shot_joint_evidence_"
+            "sentiment_confidence"
+        ),
+    )
+
+    assert len(messages) == 8
+    assert messages[0]["role"] == "system"
+
+    assistant_messages = [
+        message
+        for message in messages
+        if message["role"] == "assistant"
+    ]
+
+    assert len(assistant_messages) == 3
+
+    assert any(
+        '"sentiment":"positive"'
+        in message["content"]
+        for message in assistant_messages
+    )
+
+    assert any(
+        '"sentiment":"negative"'
+        in message["content"]
+        for message in assistant_messages
+    )
+
+    assert any(
+        '"sentiment":"neutral"'
+        in message["content"]
+        for message in assistant_messages
+    )
+
+    assert messages[-1]["role"] == "user"
+    assert "battery life" in (
+        messages[-1]["content"]
+    )

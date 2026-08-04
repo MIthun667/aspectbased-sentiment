@@ -27,6 +27,62 @@ code fences, explanations, or additional text.
 """.strip()
 
 
+THREE_SHOT_DEMONSTRATIONS = (
+    {
+        "tokens": (
+            "the",
+            "keyboard",
+            "feels",
+            "excellent",
+        ),
+        "aspect_text": "keyboard",
+        "aspect_start": 1,
+        "aspect_end": 2,
+        "output": (
+            '{"sentiment":"positive",'
+            '"evidence_indices":[2,3],'
+            '"confidence":0.90}'
+        ),
+    },
+    {
+        "tokens": (
+            "the",
+            "battery",
+            "drains",
+            "far",
+            "too",
+            "quickly",
+        ),
+        "aspect_text": "battery",
+        "aspect_start": 1,
+        "aspect_end": 2,
+        "output": (
+            '{"sentiment":"negative",'
+            '"evidence_indices":[2,3,4,5],'
+            '"confidence":0.90}'
+        ),
+    },
+    {
+        "tokens": (
+            "the",
+            "package",
+            "includes",
+            "a",
+            "standard",
+            "charger",
+        ),
+        "aspect_text": "charger",
+        "aspect_start": 5,
+        "aspect_end": 6,
+        "output": (
+            '{"sentiment":"neutral",'
+            '"evidence_indices":[2,3,4],'
+            '"confidence":0.75}'
+        ),
+    },
+)
+
+
 def format_indexed_tokens(
     tokens: tuple[str, ...],
 ) -> str:
@@ -114,6 +170,13 @@ def build_user_prompt(
             "Jointly predict target-specific evidence, "
             "sentiment, and confidence."
         ),
+        (
+            "three_shot_joint_evidence_"
+            "sentiment_confidence"
+        ): (
+            "Jointly predict target-specific evidence, "
+            "sentiment, and confidence."
+        ),
     }[prompt_mode]
 
     return f"""
@@ -147,11 +210,109 @@ Choose all values from the current sentence and target.
 """.strip()
 
 
+def format_demonstration_user_prompt(
+    demonstration: dict[str, object],
+) -> str:
+    tokens = tuple(
+        str(token)
+        for token in demonstration["tokens"]
+    )
+
+    return f"""
+Task:
+Jointly predict target-specific evidence, sentiment,
+and confidence.
+
+Allowed sentiment labels:
+negative, neutral, positive
+
+Sentence tokens:
+{format_indexed_tokens(tokens)}
+
+Target aspect:
+{demonstration["aspect_text"]}
+
+Target token span:
+[{demonstration["aspect_start"]}, {demonstration["aspect_end"]})
+
+Evidence selection rules:
+- Select the smallest token set that explains the sentiment.
+- Do not return only the target token or target span.
+- Include at least one sentiment-bearing or contextual token
+  outside the target span.
+- Do not select unrelated sentiment about another aspect.
+
+Return one JSON object.
+""".strip()
+
+
+def build_three_shot_messages(
+    instance: LLMABSAInstance,
+) -> list[dict[str, str]]:
+    instance.validate()
+
+    messages: list[dict[str, str]] = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        }
+    ]
+
+    for demonstration in (
+        THREE_SHOT_DEMONSTRATIONS
+    ):
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    format_demonstration_user_prompt(
+                        demonstration
+                    )
+                ),
+            }
+        )
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": str(
+                    demonstration["output"]
+                ),
+            }
+        )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": build_user_prompt(
+                instance,
+                prompt_mode=(
+                    "joint_evidence_"
+                    "sentiment_confidence"
+                ),
+            ),
+        }
+    )
+
+    return messages
+
+
 def build_chat_messages(
     instance: LLMABSAInstance,
     *,
     prompt_mode: str,
 ) -> list[dict[str, str]]:
+    if (
+        prompt_mode
+        == (
+            "three_shot_joint_evidence_"
+            "sentiment_confidence"
+        )
+    ):
+        return build_three_shot_messages(
+            instance
+        )
+
     return [
         {
             "role": "system",

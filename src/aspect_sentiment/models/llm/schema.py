@@ -25,6 +25,7 @@ SUPPORTED_PROMPT_MODES = (
     "sentiment_only",
     "evidence_then_sentiment",
     "joint_evidence_sentiment_confidence",
+    "three_shot_joint_evidence_sentiment_confidence",
 )
 
 
