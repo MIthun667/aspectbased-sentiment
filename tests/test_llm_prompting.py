@@ -54,3 +54,26 @@ def test_chat_messages_have_roles() -> None:
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
+
+
+def test_prompt_contains_no_concrete_answer_example() -> None:
+    prompt = build_user_prompt(
+        make_instance(),
+        prompt_mode=(
+            "joint_evidence_"
+            "sentiment_confidence"
+        ),
+    )
+
+    assert '"sentiment":"positive"' not in prompt
+    assert '"evidence_indices":[2,3]' not in prompt
+    assert '"confidence":0.85' not in prompt
+
+    assert (
+        "sorted list of unique zero-based "
+        "token indices"
+    ) in prompt
+
+    assert (
+        "numeric value from 0.0 to 1.0"
+    ) in prompt

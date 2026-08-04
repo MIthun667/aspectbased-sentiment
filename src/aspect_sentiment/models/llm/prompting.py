@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 from .schema import (
     LLMABSAInstance,
     SUPPORTED_PROMPT_MODES,
@@ -17,6 +15,12 @@ with the target-specific sentiment.
 
 Evidence must be extractive. Return only zero-based token
 indices from the supplied indexed token list.
+
+Evidence must contain the words that express, justify, or
+contextualize the sentiment toward the specified target.
+The target token alone is not sentiment evidence. The selected
+indices must include at least one token outside the target span.
+Use the smallest sufficient evidence set.
 
 Return exactly one valid JSON object. Do not use Markdown,
 code fences, explanations, or additional text.
@@ -37,7 +41,7 @@ def format_indexed_tokens(
     )
 
 
-def expected_output_example(
+def expected_output_schema(
     prompt_mode: str,
 ) -> str:
     if prompt_mode not in (
@@ -49,28 +53,28 @@ def expected_output_example(
         )
 
     if prompt_mode == "sentiment_only":
-        payload = {
-            "sentiment": "positive",
-        }
-    elif (
+        return (
+            "Required keys:\n"
+            "- sentiment: one of negative, neutral, positive"
+        )
+
+    if (
         prompt_mode
         == "evidence_then_sentiment"
     ):
-        payload = {
-            "evidence_indices": [2, 3],
-            "sentiment": "positive",
-        }
-    else:
-        payload = {
-            "sentiment": "positive",
-            "evidence_indices": [2, 3],
-            "confidence": 0.85,
-        }
+        return (
+            "Required keys:\n"
+            "- evidence_indices: sorted list of unique "
+            "zero-based token indices\n"
+            "- sentiment: one of negative, neutral, positive"
+        )
 
-    return json.dumps(
-        payload,
-        ensure_ascii=False,
-        separators=(",", ":"),
+    return (
+        "Required keys:\n"
+        "- sentiment: one of negative, neutral, positive\n"
+        "- evidence_indices: sorted list of unique "
+        "zero-based token indices\n"
+        "- confidence: numeric value from 0.0 to 1.0"
     )
 
 
@@ -93,7 +97,7 @@ def build_user_prompt(
         instance.tokens
     )
 
-    output_example = expected_output_example(
+    output_schema = expected_output_schema(
         prompt_mode
     )
 
@@ -128,8 +132,18 @@ Target aspect:
 Target token span:
 [{instance.aspect_start}, {instance.aspect_end})
 
-Required JSON format:
-{output_example}
+Evidence selection rules:
+- Select the smallest token set that explains the sentiment.
+- Do not return only the target token or target span.
+- Include at least one sentiment-bearing or contextual token
+  outside the target span.
+- Do not select unrelated sentiment about another aspect.
+
+Output requirements:
+{output_schema}
+
+Return one JSON object containing exactly those keys.
+Choose all values from the current sentence and target.
 """.strip()
 
 

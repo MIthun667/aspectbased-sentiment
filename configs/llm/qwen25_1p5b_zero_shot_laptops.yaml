@@ -10,7 +10,7 @@ model:
   parameters:
     model_name_or_path: Qwen/Qwen2.5-1.5B-Instruct
     local_files_only: true
-    torch_dtype: bfloat16
+    dtype: bfloat16
     device_map: auto
 
     prompt_mode: joint_evidence_sentiment_confidence

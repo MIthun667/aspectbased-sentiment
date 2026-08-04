@@ -1,4 +1,8 @@
 from .dataset import LLMABSADataset
+from .diagnostics import (
+    EvidenceDiagnostics,
+    diagnose_evidence,
+)
 from .parsing import (
     StructuredOutputParseResult,
     expected_keys,
@@ -8,7 +12,7 @@ from .prompting import (
     SYSTEM_PROMPT,
     build_chat_messages,
     build_user_prompt,
-    expected_output_example,
+    expected_output_schema,
     format_indexed_tokens,
 )
 from .schema import (
@@ -21,6 +25,7 @@ from .schema import (
 )
 
 __all__ = [
+    "EvidenceDiagnostics",
     "ID_TO_SENTIMENT",
     "LLMABSADataset",
     "LLMABSAInstance",
@@ -31,9 +36,10 @@ __all__ = [
     "StructuredOutputParseResult",
     "VALID_SENTIMENTS",
     "build_chat_messages",
+    "diagnose_evidence",
     "build_user_prompt",
     "expected_keys",
-    "expected_output_example",
+    "expected_output_schema",
     "format_indexed_tokens",
     "parse_structured_output",
 ]
