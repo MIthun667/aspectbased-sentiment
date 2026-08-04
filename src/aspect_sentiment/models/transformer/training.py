@@ -973,7 +973,10 @@ class EvidenceBindingEvaluationResult:
 
 def _forward_evidence_binding_model(
     *,
-    model: EvidenceBindingTransformerClassifier,
+    model: (
+        EvidenceBindingTransformerClassifier
+        | EvidenceCompatibilityBindingTransformerClassifier
+    ),
     batch: EvidenceTransformerBatch,
 ):
     return model(
@@ -1542,7 +1545,10 @@ def train_counterfactual_binding_one_epoch(
 @torch.no_grad()
 def evaluate_evidence_binding_model(
     *,
-    model: EvidenceBindingTransformerClassifier,
+    model: (
+        EvidenceBindingTransformerClassifier
+        | EvidenceCompatibilityBindingTransformerClassifier
+    ),
     data_loader: Iterable[
         EvidenceTransformerBatch
     ],
@@ -2012,6 +2018,111 @@ def load_evidence_binding_checkpoint(
             "Checkpoint is not an "
             "evidence-binding transformer "
             "checkpoint"
+        )
+
+    model.load_state_dict(
+        checkpoint["model_state_dict"]
+    )
+
+    return checkpoint
+
+
+def save_counterfactual_binding_checkpoint(
+    *,
+    path: str | Path,
+    model: (
+        EvidenceCompatibilityBindingTransformerClassifier
+    ),
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    epoch: int,
+    metric_name: str,
+    metric_value: float,
+    model_name_or_path: str,
+    model_parameters: dict[str, object],
+    base_loss_parameters: dict[str, object],
+    counterfactual_loss_parameters: (
+        dict[str, object]
+    ),
+) -> Path:
+    checkpoint_path = Path(path)
+
+    checkpoint_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    torch.save(
+        {
+            "checkpoint_type": (
+                "counterfactual_evidence_"
+                "binding_transformer"
+            ),
+            "epoch": epoch,
+            "metric_name": metric_name,
+            "metric_value": metric_value,
+            "model_name_or_path": (
+                model_name_or_path
+            ),
+            "model_parameters": (
+                model_parameters
+            ),
+            "base_loss_parameters": (
+                base_loss_parameters
+            ),
+            "counterfactual_loss_parameters": (
+                counterfactual_loss_parameters
+            ),
+            "model_state_dict": (
+                model.state_dict()
+            ),
+            "optimizer_state_dict": (
+                optimizer.state_dict()
+            ),
+            "scheduler_state_dict": (
+                scheduler.state_dict()
+            ),
+        },
+        checkpoint_path,
+    )
+
+    return checkpoint_path
+
+
+def load_counterfactual_binding_checkpoint(
+    *,
+    path: str | Path,
+    model: (
+        EvidenceCompatibilityBindingTransformerClassifier
+    ),
+    device: torch.device,
+) -> dict[str, object]:
+    checkpoint_path = Path(path)
+
+    if not checkpoint_path.is_file():
+        raise FileNotFoundError(
+            f"Checkpoint not found: "
+            f"{checkpoint_path}"
+        )
+
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location=device,
+        weights_only=False,
+    )
+
+    expected_type = (
+        "counterfactual_evidence_"
+        "binding_transformer"
+    )
+
+    if checkpoint.get(
+        "checkpoint_type"
+    ) != expected_type:
+        raise ValueError(
+            "Checkpoint is not a "
+            "counterfactual evidence-binding "
+            "transformer checkpoint"
         )
 
     model.load_state_dict(

@@ -614,3 +614,155 @@ def test_training_fixture_has_cross_negatives() -> None:
         )
 
     assert number_changed > 0
+
+
+def test_counterfactual_checkpoint_round_trip(
+    tmp_path,
+) -> None:
+    from src.aspect_sentiment.models.transformer import (
+        load_counterfactual_binding_checkpoint,
+        save_counterfactual_binding_checkpoint,
+    )
+
+    (
+        _,
+        model,
+        _,
+        _,
+        optimizer,
+        scheduler,
+    ) = build_components()
+
+    path = tmp_path / "best.pt"
+
+    save_counterfactual_binding_checkpoint(
+        path=path,
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        epoch=3,
+        metric_name="macro_f1",
+        metric_value=0.82,
+        model_name_or_path="tiny-model",
+        model_parameters={
+            "hidden_dimension": 8,
+            "compatibility_dimension": 4,
+        },
+        base_loss_parameters={
+            "combined_weight": 1.0,
+            "context_weight": 0.2,
+        },
+        counterfactual_loss_parameters={
+            "ranking_weight": 0.2,
+            "probability_margin_weight": 0.2,
+        },
+    )
+
+    restored = (
+        EvidenceCompatibilityBindingTransformerClassifier(
+            backbone=TinyEncoder(),
+            hidden_dimension=8,
+            number_of_classes=3,
+            dropout=0.0,
+            compatibility_dimension=4,
+        )
+    )
+
+    checkpoint = (
+        load_counterfactual_binding_checkpoint(
+            path=path,
+            model=restored,
+            device=torch.device("cpu"),
+        )
+    )
+
+    assert checkpoint["epoch"] == 3
+
+    assert (
+        checkpoint["checkpoint_type"]
+        == (
+            "counterfactual_evidence_"
+            "binding_transformer"
+        )
+    )
+
+    assert (
+        checkpoint[
+            "counterfactual_loss_parameters"
+        ]["ranking_weight"]
+        == 0.2
+    )
+
+    for original, recovered in zip(
+        model.parameters(),
+        restored.parameters(),
+        strict=True,
+    ):
+        assert torch.allclose(
+            original,
+            recovered,
+        )
+
+
+def test_wrong_counterfactual_checkpoint_rejected(
+    tmp_path,
+) -> None:
+    from src.aspect_sentiment.models.transformer import (
+        load_counterfactual_binding_checkpoint,
+    )
+
+    path = tmp_path / "wrong.pt"
+
+    torch.save(
+        {
+            "checkpoint_type": (
+                "evidence_binding_transformer"
+            ),
+            "model_state_dict": {},
+        },
+        path,
+    )
+
+    model = (
+        EvidenceCompatibilityBindingTransformerClassifier(
+            backbone=TinyEncoder(),
+            hidden_dimension=8,
+            compatibility_dimension=4,
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="counterfactual evidence-binding",
+    ):
+        load_counterfactual_binding_checkpoint(
+            path=path,
+            model=model,
+            device=torch.device("cpu"),
+        )
+
+
+def test_counterfactual_checkpoint_missing_file(
+    tmp_path,
+) -> None:
+    from src.aspect_sentiment.models.transformer import (
+        load_counterfactual_binding_checkpoint,
+    )
+
+    model = (
+        EvidenceCompatibilityBindingTransformerClassifier(
+            backbone=TinyEncoder(),
+            hidden_dimension=8,
+            compatibility_dimension=4,
+        )
+    )
+
+    with pytest.raises(
+        FileNotFoundError,
+        match="Checkpoint not found",
+    ):
+        load_counterfactual_binding_checkpoint(
+            path=tmp_path / "missing.pt",
+            model=model,
+            device=torch.device("cpu"),
+        )
