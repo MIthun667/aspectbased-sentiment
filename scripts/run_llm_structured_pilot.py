@@ -245,6 +245,30 @@ def deterministic_stratified_subset(
     return selected
 
 
+def select_evaluation_instances(
+    dataset: LLMABSADataset,
+    *,
+    instances_per_label: int | None,
+    seed: int,
+) -> tuple[list[Any], str]:
+    if instances_per_label is None:
+        return (
+            list(dataset.instances),
+            "complete_split",
+        )
+
+    return (
+        deterministic_stratified_subset(
+            dataset,
+            instances_per_label=(
+                instances_per_label
+            ),
+            seed=seed,
+        ),
+        "deterministic_stratified_subset",
+    )
+
+
 def dtype_from_name(
     value: str,
 ) -> torch.dtype:
@@ -400,10 +424,17 @@ def run_pilot(
         data_config["split"]
     )
 
-    instances_per_label = int(
+    instances_per_label_value = (
         data_config.get(
-            "pilot_instances_per_label",
-            4,
+            "pilot_instances_per_label"
+        )
+    )
+
+    instances_per_label = (
+        None
+        if instances_per_label_value is None
+        else int(
+            instances_per_label_value
         )
     )
 
@@ -441,14 +472,15 @@ def run_pilot(
         split=split,
     )
 
-    selected_instances = (
-        deterministic_stratified_subset(
-            dataset,
-            instances_per_label=(
-                instances_per_label
-            ),
-            seed=seed,
-        )
+    (
+        selected_instances,
+        selection_mode,
+    ) = select_evaluation_instances(
+        dataset,
+        instances_per_label=(
+            instances_per_label
+        ),
+        seed=seed,
     )
 
     subset_manifest = {
@@ -458,6 +490,9 @@ def run_pilot(
         "seed": seed,
         "domain": domain,
         "split": split,
+        "selection_mode": (
+            selection_mode
+        ),
         "instances_per_label": (
             instances_per_label
         ),

@@ -160,3 +160,49 @@ def test_runner_help_works_as_direct_script() -> None:
         "structured LLM ABSA pilot"
         in result.stdout
     )
+
+
+def test_complete_split_selection() -> None:
+    from scripts.run_llm_structured_pilot import (
+        select_evaluation_instances,
+    )
+
+    dataset = make_dataset()
+
+    selected, mode = (
+        select_evaluation_instances(
+            dataset,
+            instances_per_label=None,
+            seed=2026,
+        )
+    )
+
+    assert mode == "complete_split"
+    assert len(selected) == len(dataset)
+    assert [
+        instance.instance_id
+        for instance in selected
+    ] == [
+        instance.instance_id
+        for instance in dataset
+    ]
+
+
+def test_subset_selection_mode() -> None:
+    from scripts.run_llm_structured_pilot import (
+        select_evaluation_instances,
+    )
+
+    selected, mode = (
+        select_evaluation_instances(
+            make_dataset(),
+            instances_per_label=4,
+            seed=2026,
+        )
+    )
+
+    assert (
+        mode
+        == "deterministic_stratified_subset"
+    )
+    assert len(selected) == 12
