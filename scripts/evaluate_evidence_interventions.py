@@ -38,6 +38,11 @@ if str(REPOSITORY_ROOT) not in sys.path:
         str(REPOSITORY_ROOT),
     )
 
+from scripts.run_counterfactual_binding_transformer import (
+    filter_records_by_instance_ids,
+    load_instance_id_file,
+    sha256_file,
+)
 from scripts.run_evidence_transformer import (
     create_evidence_transformer_data_loader,
 )
@@ -319,6 +324,134 @@ def write_jsonl(
             handle.write("\n")
 
     return path
+
+
+def load_intervention_dataset(
+    *,
+    resolved_config: dict[str, Any],
+    processed_root: str | Path,
+    evidence_root: str | Path,
+    domain: str,
+    requested_split: str,
+):
+    data_config = resolved_config.get(
+        "data",
+        {},
+    )
+
+    if not isinstance(
+        data_config,
+        dict,
+    ):
+        raise TypeError(
+            "Resolved data configuration "
+            "must be a mapping"
+        )
+
+    source_split = requested_split
+    instance_subset_path = None
+
+    if requested_split == "train":
+        source_split = str(
+            data_config.get(
+                "train_split",
+                "train",
+            )
+        )
+
+        instance_subset_path = (
+            data_config.get(
+                "train_instance_ids_path"
+            )
+        )
+
+    elif requested_split == "validation":
+        source_split = str(
+            data_config.get(
+                "validation_source_split"
+            )
+            or data_config.get(
+                "validation_split",
+                "validation",
+            )
+        )
+
+        instance_subset_path = (
+            data_config.get(
+                "validation_instance_ids_path"
+            )
+        )
+
+    elif requested_split == "test":
+        source_split = str(
+            data_config.get(
+                "test_split",
+                "test",
+            )
+        )
+
+    dataset = list(
+        EvidenceAwareDataset.from_split(
+            processed_root=processed_root,
+            evidence_root=evidence_root,
+            domain=domain,
+            split=source_split,
+        )
+    )
+
+    subset_sha256 = None
+
+    if instance_subset_path is not None:
+        if (
+            not isinstance(
+                instance_subset_path,
+                str,
+            )
+            or not instance_subset_path.strip()
+        ):
+            raise ValueError(
+                "Configured instance subset "
+                "path must be a non-empty string"
+            )
+
+        instance_ids = load_instance_id_file(
+            instance_subset_path
+        )
+
+        dataset = (
+            filter_records_by_instance_ids(
+                dataset,
+                instance_ids,
+                subset_name=(
+                    "Intervention evaluation "
+                    f"{requested_split} subset"
+                ),
+            )
+        )
+
+        subset_sha256 = sha256_file(
+            instance_subset_path
+        )
+
+    if not dataset:
+        raise ValueError(
+            "Intervention evaluation dataset "
+            "must not be empty"
+        )
+
+    return {
+        "instances": dataset,
+        "requested_split": (
+            requested_split
+        ),
+        "source_split": source_split,
+        "instance_subset_path": (
+            instance_subset_path
+        ),
+        "instance_subset_sha256": (
+            subset_sha256
+        ),
+    }
 
 
 def resolve_output_directory(
@@ -1584,11 +1717,34 @@ def run_intervention_evaluation(
         ),
     )
 
-    dataset = EvidenceAwareDataset.from_split(
+    dataset_resolution = load_intervention_dataset(
+        resolved_config=resolved_config,
         processed_root=processed_root,
         evidence_root=evidence_root,
         domain=domain,
-        split=split,
+        requested_split=split,
+    )
+
+    dataset = dataset_resolution[
+        "instances"
+    ]
+    source_split = dataset_resolution[
+        "source_split"
+    ]
+    instance_subset_path = dataset_resolution[
+        "instance_subset_path"
+    ]
+    instance_subset_sha256 = dataset_resolution[
+        "instance_subset_sha256"
+    ]
+
+    print(
+        "Source split:      "
+        f"{source_split}"
+    )
+    print(
+        "Instance subset:   "
+        f"{instance_subset_path}"
     )
 
     original_instances = [
@@ -1981,6 +2137,17 @@ def run_intervention_evaluation(
         ),
         "domain": domain,
         "split": split,
+        "requested_split": split,
+        "source_split": source_split,
+        "instance_subset_path": (
+            str(instance_subset_path)
+            if instance_subset_path
+            is not None
+            else None
+        ),
+        "instance_subset_sha256": (
+            instance_subset_sha256
+        ),
         "training_seed": seed,
         "intervention_seed": (
             intervention_seed

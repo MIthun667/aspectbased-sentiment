@@ -5,6 +5,7 @@ import pytest
 from types import SimpleNamespace
 
 from scripts.evaluate_evidence_interventions import (
+    load_intervention_dataset,
     normalized_evaluation_heads,
     paired_prediction_records,
     validate_binding_model_parameters,
@@ -1114,4 +1115,173 @@ def test_prediction_records_include_binding_diagnostics() -> None:
     assert (
         record["gate_value_change"]
         == pytest.approx(-0.8)
+    )
+
+
+def test_crossfit_validation_uses_train_source(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import json
+    from types import SimpleNamespace
+
+    subset_path = (
+        tmp_path / "heldout.json"
+    )
+
+    subset_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "count": 1,
+                "instance_ids": [
+                    "heldout-one"
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    instances = [
+        SimpleNamespace(
+            instance_id="training-one",
+            sentence_id="sentence-one",
+        ),
+        SimpleNamespace(
+            instance_id="heldout-one",
+            sentence_id="sentence-two",
+        ),
+    ]
+
+    def fake_from_split(
+        *,
+        processed_root,
+        evidence_root,
+        domain,
+        split,
+    ):
+        calls.append(split)
+        return instances
+
+    monkeypatch.setattr(
+        EvidenceAwareDataset,
+        "from_split",
+        fake_from_split,
+    )
+
+    resolution = load_intervention_dataset(
+        resolved_config={
+            "data": {
+                "validation_split": (
+                    "validation"
+                ),
+                "validation_source_split": (
+                    "train"
+                ),
+                "validation_instance_ids_path": (
+                    str(subset_path)
+                ),
+            }
+        },
+        processed_root=tmp_path,
+        evidence_root=tmp_path,
+        domain="laptops",
+        requested_split="validation",
+    )
+
+    assert calls == ["train"]
+
+    assert (
+        resolution["requested_split"]
+        == "validation"
+    )
+
+    assert (
+        resolution["source_split"]
+        == "train"
+    )
+
+    assert (
+        resolution[
+            "instance_subset_path"
+        ]
+        == str(subset_path)
+    )
+
+    assert [
+        instance.instance_id
+        for instance in resolution[
+            "instances"
+        ]
+    ] == [
+        "heldout-one"
+    ]
+
+
+def test_standard_validation_remains_unchanged(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from types import SimpleNamespace
+
+    calls = []
+
+    instances = [
+        SimpleNamespace(
+            instance_id="validation-one",
+            sentence_id="sentence-one",
+        )
+    ]
+
+    def fake_from_split(
+        *,
+        processed_root,
+        evidence_root,
+        domain,
+        split,
+    ):
+        calls.append(split)
+        return instances
+
+    monkeypatch.setattr(
+        EvidenceAwareDataset,
+        "from_split",
+        fake_from_split,
+    )
+
+    resolution = load_intervention_dataset(
+        resolved_config={
+            "data": {
+                "validation_split": (
+                    "validation"
+                )
+            }
+        },
+        processed_root=tmp_path,
+        evidence_root=tmp_path,
+        domain="laptops",
+        requested_split="validation",
+    )
+
+    assert calls == ["validation"]
+
+    assert (
+        resolution["instances"]
+        == instances
+    )
+
+    assert (
+        resolution[
+            "instance_subset_path"
+        ]
+        is None
+    )
+
+    assert (
+        resolution[
+            "instance_subset_sha256"
+        ]
+        is None
     )
