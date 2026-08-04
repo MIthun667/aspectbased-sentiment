@@ -164,3 +164,63 @@ def test_config_round_trip_through_yaml(
 
     assert loaded.model.name == "majority_class"
     assert loaded.schema_version == "1.0"
+
+
+def test_data_config_accepts_subset_paths(
+    tmp_path,
+) -> None:
+    path = tmp_path / "config.yaml"
+
+    path.write_text(
+        """
+schema_version: "1.0"
+model:
+  name: test
+data:
+  train_instance_ids_path: train.json
+  validation_instance_ids_path: heldout.json
+  validation_source_split: train
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = load_experiment_config(path)
+
+    assert (
+        config.data.train_instance_ids_path
+        == "train.json"
+    )
+    assert (
+        config.data
+        .validation_instance_ids_path
+        == "heldout.json"
+    )
+    assert (
+        config.data.validation_source_split
+        == "train"
+    )
+
+
+def test_validation_source_requires_id_file(
+    tmp_path,
+) -> None:
+    path = tmp_path / "config.yaml"
+
+    path.write_text(
+        """
+schema_version: "1.0"
+model:
+  name: test
+data:
+  validation_source_split: train
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="requires",
+    ):
+        load_experiment_config(path)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 import os
 import sys
@@ -79,6 +81,267 @@ from src.aspect_sentiment.utils import (
     print_training_complete,
     seed_everything,
 )
+
+
+def sha256_file(
+    path: str | Path,
+) -> str:
+    source_path = Path(path)
+
+    digest = hashlib.sha256()
+
+    with source_path.open("rb") as handle:
+        for block in iter(
+            lambda: handle.read(
+                1024 * 1024
+            ),
+            b"",
+        ):
+            digest.update(block)
+
+    return digest.hexdigest()
+
+
+def load_instance_id_file(
+    path: str | Path,
+) -> tuple[str, ...]:
+    source_path = Path(path)
+
+    if not source_path.is_file():
+        raise FileNotFoundError(
+            "Instance-ID file not found: "
+            f"{source_path}"
+        )
+
+    payload = json.loads(
+        source_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    if not isinstance(payload, dict):
+        raise TypeError(
+            "Instance-ID file must contain "
+            "a JSON object"
+        )
+
+    schema_version = payload.get(
+        "schema_version"
+    )
+
+    if schema_version != 1:
+        raise ValueError(
+            "Unsupported instance-ID "
+            f"schema_version: {schema_version}"
+        )
+
+    declared_count = payload.get("count")
+
+    if (
+        isinstance(declared_count, bool)
+        or not isinstance(
+            declared_count,
+            int,
+        )
+    ):
+        raise TypeError(
+            "Instance-ID count must be "
+            "an integer"
+        )
+
+    values = payload.get("instance_ids")
+
+    if not isinstance(values, list):
+        raise TypeError(
+            "instance_ids must be a list"
+        )
+
+    instance_ids: list[str] = []
+
+    for value in values:
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+        ):
+            raise ValueError(
+                "Every instance ID must be "
+                "a non-empty string"
+            )
+
+        instance_ids.append(value)
+
+    if not instance_ids:
+        raise ValueError(
+            "Instance-ID file must not "
+            "be empty"
+        )
+
+    if declared_count != len(instance_ids):
+        raise ValueError(
+            "Declared instance-ID count "
+            "does not match instance_ids"
+        )
+
+    if len(set(instance_ids)) != len(
+        instance_ids
+    ):
+        raise ValueError(
+            "Instance-ID file contains "
+            "duplicate IDs"
+        )
+
+    return tuple(instance_ids)
+
+
+def record_instance_id(record) -> str:
+    if isinstance(record, dict):
+        value = record.get("instance_id")
+    else:
+        value = getattr(
+            record,
+            "instance_id",
+            None,
+        )
+
+    if not isinstance(value, str):
+        raise TypeError(
+            "Record instance_id must be "
+            "a string"
+        )
+
+    return value
+
+
+def record_sentence_id(record) -> str:
+    if isinstance(record, dict):
+        value = record.get("sentence_id")
+    else:
+        value = getattr(
+            record,
+            "sentence_id",
+            None,
+        )
+
+    if not isinstance(value, str):
+        raise TypeError(
+            "Record sentence_id must be "
+            "a string"
+        )
+
+    return value
+
+
+def filter_records_by_instance_ids(
+    records,
+    instance_ids,
+    *,
+    subset_name: str,
+):
+    requested = tuple(instance_ids)
+
+    if not requested:
+        raise ValueError(
+            f"{subset_name} IDs must not "
+            "be empty"
+        )
+
+    if len(set(requested)) != len(
+        requested
+    ):
+        raise ValueError(
+            f"{subset_name} IDs contain "
+            "duplicates"
+        )
+
+    indexed = {}
+
+    for record in records:
+        instance_id = record_instance_id(
+            record
+        )
+
+        if instance_id in indexed:
+            raise ValueError(
+                "Records contain duplicate "
+                f"instance_id: {instance_id}"
+            )
+
+        indexed[instance_id] = record
+
+    unknown = sorted(
+        set(requested) - set(indexed)
+    )
+
+    if unknown:
+        raise ValueError(
+            f"{subset_name} contains unknown "
+            f"instance IDs: {unknown[:10]}"
+        )
+
+    requested_set = set(requested)
+
+    filtered = [
+        record
+        for record in records
+        if record_instance_id(record)
+        in requested_set
+    ]
+
+    if len(filtered) != len(requested):
+        raise RuntimeError(
+            f"{subset_name} filtering did "
+            "not preserve the requested count"
+        )
+
+    return filtered
+
+
+def validate_subset_separation(
+    training_records,
+    validation_records,
+) -> None:
+    training_ids = {
+        record_instance_id(record)
+        for record in training_records
+    }
+
+    validation_ids = {
+        record_instance_id(record)
+        for record in validation_records
+    }
+
+    overlapping_ids = sorted(
+        training_ids & validation_ids
+    )
+
+    if overlapping_ids:
+        raise ValueError(
+            "Training and validation "
+            "instance-ID subsets overlap: "
+            f"{overlapping_ids[:10]}"
+        )
+
+    training_sentences = {
+        record_sentence_id(record)
+        for record in training_records
+    }
+
+    validation_sentences = {
+        record_sentence_id(record)
+        for record in validation_records
+    }
+
+    overlapping_sentences = sorted(
+        training_sentences
+        & validation_sentences
+    )
+
+    if overlapping_sentences:
+        raise ValueError(
+            "Training and validation "
+            "sentence groups overlap: "
+            f"{overlapping_sentences[:10]}"
+        )
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -645,6 +908,11 @@ def run_experiment(
         / "best.pt"
     )
 
+    validation_source_split = (
+        config.data.validation_source_split
+        or config.data.validation_split
+    )
+
     train_records = load_canonical_split(
         config.data.processed_root,
         domain=config.data.train_domain,
@@ -657,13 +925,11 @@ def run_experiment(
             domain=(
                 config.data.train_domain
             ),
-            split=(
-                config.data.validation_split
-            ),
+            split=validation_source_split,
         )
     )
 
-    train_joined = (
+    train_joined = list(
         EvidenceAwareDataset.from_split(
             processed_root=(
                 config.data.processed_root
@@ -674,18 +940,92 @@ def run_experiment(
         )
     )
 
-    validation_joined = (
+    validation_joined = list(
         EvidenceAwareDataset.from_split(
             processed_root=(
                 config.data.processed_root
             ),
             evidence_root=evidence_root,
             domain=config.data.train_domain,
-            split=(
-                config.data.validation_split
-            ),
+            split=validation_source_split,
         )
     )
+
+    train_instance_ids = None
+    validation_instance_ids = None
+
+    if (
+        config.data.train_instance_ids_path
+        is not None
+    ):
+        train_instance_ids = (
+            load_instance_id_file(
+                config.data
+                .train_instance_ids_path
+            )
+        )
+
+        train_records = (
+            filter_records_by_instance_ids(
+                train_records,
+                train_instance_ids,
+                subset_name=(
+                    "Training subset"
+                ),
+            )
+        )
+
+        train_joined = (
+            filter_records_by_instance_ids(
+                train_joined,
+                train_instance_ids,
+                subset_name=(
+                    "Joined training subset"
+                ),
+            )
+        )
+
+    if (
+        config.data
+        .validation_instance_ids_path
+        is not None
+    ):
+        validation_instance_ids = (
+            load_instance_id_file(
+                config.data
+                .validation_instance_ids_path
+            )
+        )
+
+        validation_records = (
+            filter_records_by_instance_ids(
+                validation_records,
+                validation_instance_ids,
+                subset_name=(
+                    "Validation subset"
+                ),
+            )
+        )
+
+        validation_joined = (
+            filter_records_by_instance_ids(
+                validation_joined,
+                validation_instance_ids,
+                subset_name=(
+                    "Joined validation subset"
+                ),
+            )
+        )
+
+    if (
+        train_instance_ids is not None
+        or validation_instance_ids
+        is not None
+    ):
+        validate_subset_separation(
+            train_records,
+            validation_records,
+        )
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path,
@@ -777,6 +1117,43 @@ def run_experiment(
         ),
         "reject_truncation": (
             reject_truncation
+        ),
+        "validation_source_split": (
+            validation_source_split
+        ),
+        "train_instance_ids_path": (
+            config.data
+            .train_instance_ids_path
+        ),
+        "train_instance_ids_sha256": (
+            sha256_file(
+                config.data
+                .train_instance_ids_path
+            )
+            if config.data
+            .train_instance_ids_path
+            is not None
+            else None
+        ),
+        "validation_instance_ids_path": (
+            config.data
+            .validation_instance_ids_path
+        ),
+        "validation_instance_ids_sha256": (
+            sha256_file(
+                config.data
+                .validation_instance_ids_path
+            )
+            if config.data
+            .validation_instance_ids_path
+            is not None
+            else None
+        ),
+        "filtered_training_count": len(
+            train_records
+        ),
+        "filtered_validation_count": len(
+            validation_records
         ),
         "dtype": "float32",
     }

@@ -1,0 +1,53 @@
+data:
+  evaluation_domains:
+  - laptops
+  processed_root: data/processed
+  train_domain: laptops
+  train_instance_ids_path: artifacts/crossfit/counterfactual_binding_deberta_laptops/seed_2026/fold_0/train_instance_ids.json
+  validation_instance_ids_path: artifacts/crossfit/counterfactual_binding_deberta_laptops/seed_2026/fold_0/heldout_instance_ids.json
+  validation_source_split: train
+description: Cross-fitted counterfactual binding teacher for laptops fold 0.
+evaluation:
+  batch_size: 32
+  duplicate_excluded_sensitivity: true
+  save_predictions: true
+  save_probabilities: true
+model:
+  name: counterfactual_binding_deberta
+  parameters:
+    agreement_temperature: 1.0
+    agreement_weight: 0.1
+    class_weighting: false
+    combined_weight: 1.0
+    compatibility_dimension: 256
+    context_weight: 0.2
+    counterfactual_seed: 2026
+    dropout: 0.1
+    evidence_root: data/derived/evidence
+    evidence_weight: 0.5
+    gradient_clip_norm: 1.0
+    local_files_only: true
+    maximum_length: 128
+    model_name_or_path: microsoft/deberta-v3-base
+    num_workers: 0
+    probability_margin: 0.05
+    probability_margin_weight: 0.2
+    ranking_margin: 0.2
+    ranking_weight: 0.2
+    reject_truncation: true
+    use_bfloat16: false
+    warmup_ratio: 0.1
+output:
+  experiment_name: counterfactual_binding_deberta_laptops_crossfit_fold_0
+  overwrite: false
+  root: artifacts/experiments
+schema_version: '1.0'
+training:
+  batch_size: 16
+  early_stopping_patience: 3
+  epochs: 8
+  learning_rate: 2.0e-05
+  maximize_selection_metric: true
+  seed: 2026
+  selection_metric: macro_f1
+  weight_decay: 0.01

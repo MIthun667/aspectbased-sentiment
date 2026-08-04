@@ -213,3 +213,185 @@ def test_required_counterfactual_parameters_present(
     assert parameter in (
         config.model.parameters
     )
+
+
+def test_load_instance_id_file(
+    tmp_path,
+) -> None:
+    import json
+
+    from scripts.run_counterfactual_binding_transformer import (
+        load_instance_id_file,
+    )
+
+    path = tmp_path / "ids.json"
+
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "count": 2,
+                "instance_ids": [
+                    "one",
+                    "two",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_instance_id_file(path) == (
+        "one",
+        "two",
+    )
+
+
+def test_instance_id_count_mismatch_rejected(
+    tmp_path,
+) -> None:
+    import json
+
+    from scripts.run_counterfactual_binding_transformer import (
+        load_instance_id_file,
+    )
+
+    path = tmp_path / "ids.json"
+
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "count": 3,
+                "instance_ids": [
+                    "one",
+                    "two",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="count",
+    ):
+        load_instance_id_file(path)
+
+
+def test_duplicate_instance_ids_rejected(
+    tmp_path,
+) -> None:
+    import json
+
+    from scripts.run_counterfactual_binding_transformer import (
+        load_instance_id_file,
+    )
+
+    path = tmp_path / "ids.json"
+
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "count": 2,
+                "instance_ids": [
+                    "one",
+                    "one",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="duplicate",
+    ):
+        load_instance_id_file(path)
+
+
+def test_filter_records_preserves_source_order() -> None:
+    from scripts.run_counterfactual_binding_transformer import (
+        filter_records_by_instance_ids,
+    )
+
+    records = [
+        {
+            "instance_id": "one",
+            "sentence_id": "sentence-one",
+        },
+        {
+            "instance_id": "two",
+            "sentence_id": "sentence-two",
+        },
+        {
+            "instance_id": "three",
+            "sentence_id": "sentence-three",
+        },
+    ]
+
+    filtered = filter_records_by_instance_ids(
+        records,
+        ("three", "one"),
+        subset_name="Test subset",
+    )
+
+    assert [
+        record["instance_id"]
+        for record in filtered
+    ] == [
+        "one",
+        "three",
+    ]
+
+
+def test_unknown_subset_ids_rejected() -> None:
+    from scripts.run_counterfactual_binding_transformer import (
+        filter_records_by_instance_ids,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="unknown",
+    ):
+        filter_records_by_instance_ids(
+            [
+                {
+                    "instance_id": "one",
+                    "sentence_id": (
+                        "sentence-one"
+                    ),
+                }
+            ],
+            ("missing",),
+            subset_name="Test subset",
+        )
+
+
+def test_sentence_overlap_rejected() -> None:
+    from scripts.run_counterfactual_binding_transformer import (
+        validate_subset_separation,
+    )
+
+    training = [
+        {
+            "instance_id": "one",
+            "sentence_id": "shared",
+        }
+    ]
+
+    validation = [
+        {
+            "instance_id": "two",
+            "sentence_id": "shared",
+        }
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="sentence",
+    ):
+        validate_subset_separation(
+            training,
+            validation,
+        )

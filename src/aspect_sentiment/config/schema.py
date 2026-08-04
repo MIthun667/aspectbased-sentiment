@@ -37,6 +37,9 @@ class DataConfig:
     train_split: str = "train"
     validation_split: str = "validation"
     test_split: str = "test"
+    train_instance_ids_path: str | None = None
+    validation_instance_ids_path: str | None = None
+    validation_source_split: str | None = None
 
     def validate(self) -> None:
         if self.train_domain not in VALID_DOMAINS:
@@ -85,6 +88,49 @@ class DataConfig:
         if not self.processed_root.strip():
             raise ValueError(
                 "processed_root must not be empty"
+            )
+
+        for field_name, value in (
+            (
+                "train_instance_ids_path",
+                self.train_instance_ids_path,
+            ),
+            (
+                "validation_instance_ids_path",
+                self.validation_instance_ids_path,
+            ),
+        ):
+            if (
+                value is not None
+                and not value.strip()
+            ):
+                raise ValueError(
+                    f"{field_name} must not "
+                    "be empty"
+                )
+
+        if (
+            self.validation_source_split
+            is not None
+            and self.validation_source_split
+            not in VALID_SPLITS
+        ):
+            raise ValueError(
+                "Unsupported "
+                "validation_source_split: "
+                f"{self.validation_source_split!r}"
+            )
+
+        if (
+            self.validation_source_split
+            is not None
+            and self.validation_instance_ids_path
+            is None
+        ):
+            raise ValueError(
+                "validation_source_split "
+                "requires "
+                "validation_instance_ids_path"
             )
 
 
