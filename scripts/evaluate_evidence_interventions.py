@@ -1041,9 +1041,79 @@ def paired_prediction_records(
     original_result,
     intervened_result,
     intervention_name: str,
+    original_compatibility_scores: (
+        np.ndarray | None
+    ) = None,
+    intervened_compatibility_scores: (
+        np.ndarray | None
+    ) = None,
+    original_gate_values: (
+        np.ndarray | None
+    ) = None,
+    intervened_gate_values: (
+        np.ndarray | None
+    ) = None,
 ) -> list[dict[str, Any]]:
     number_of_instances = len(
         original_instances
+    )
+
+    def optional_scalar_array(
+        values,
+        *,
+        name: str,
+    ) -> np.ndarray | None:
+        if values is None:
+            return None
+
+        array = instance_scalar_values(
+            np.asarray(
+                values,
+                dtype=np.float64,
+            ),
+            name=name,
+        )
+
+        if array.shape != (
+            number_of_instances,
+        ):
+            raise ValueError(
+                f"{name} does not match the "
+                "instance count"
+            )
+
+        return array
+
+    original_compatibility_scores = (
+        optional_scalar_array(
+            original_compatibility_scores,
+            name=(
+                "original compatibility scores"
+            ),
+        )
+    )
+
+    intervened_compatibility_scores = (
+        optional_scalar_array(
+            intervened_compatibility_scores,
+            name=(
+                "intervened compatibility scores"
+            ),
+        )
+    )
+
+    original_gate_values = (
+        optional_scalar_array(
+            original_gate_values,
+            name="original gate values",
+        )
+    )
+
+    intervened_gate_values = (
+        optional_scalar_array(
+            intervened_gate_values,
+            name="intervened gate values",
+        )
     )
 
     if len(intervened_instances) != (
@@ -1233,6 +1303,80 @@ def paired_prediction_records(
                 "gold_probability_change": (
                     intervened_gold_probability
                     - original_gold_probability
+                ),
+                "original_compatibility_score": (
+                    float(
+                        original_compatibility_scores[
+                            index
+                        ]
+                    )
+                    if original_compatibility_scores
+                    is not None
+                    else None
+                ),
+                "intervened_compatibility_score": (
+                    float(
+                        intervened_compatibility_scores[
+                            index
+                        ]
+                    )
+                    if intervened_compatibility_scores
+                    is not None
+                    else None
+                ),
+                "compatibility_score_change": (
+                    float(
+                        intervened_compatibility_scores[
+                            index
+                        ]
+                        - original_compatibility_scores[
+                            index
+                        ]
+                    )
+                    if (
+                        original_compatibility_scores
+                        is not None
+                        and intervened_compatibility_scores
+                        is not None
+                    )
+                    else None
+                ),
+                "original_gate_value": (
+                    float(
+                        original_gate_values[
+                            index
+                        ]
+                    )
+                    if original_gate_values
+                    is not None
+                    else None
+                ),
+                "intervened_gate_value": (
+                    float(
+                        intervened_gate_values[
+                            index
+                        ]
+                    )
+                    if intervened_gate_values
+                    is not None
+                    else None
+                ),
+                "gate_value_change": (
+                    float(
+                        intervened_gate_values[
+                            index
+                        ]
+                        - original_gate_values[
+                            index
+                        ]
+                    )
+                    if (
+                        original_gate_values
+                        is not None
+                        and intervened_gate_values
+                        is not None
+                    )
+                    else None
                 ),
                 "confidence_change": (
                     max(
@@ -2018,6 +2162,34 @@ def run_intervention_evaluation(
                 ]
             ),
             intervention_name=name,
+            original_compatibility_scores=(
+                getattr(
+                    original_result,
+                    "compatibility_scores",
+                    None,
+                )
+            ),
+            intervened_compatibility_scores=(
+                getattr(
+                    evaluation,
+                    "compatibility_scores",
+                    None,
+                )
+            ),
+            original_gate_values=(
+                getattr(
+                    original_result,
+                    "gate_values",
+                    None,
+                )
+            ),
+            intervened_gate_values=(
+                getattr(
+                    evaluation,
+                    "gate_values",
+                    None,
+                )
+            ),
         )
 
         write_jsonl(

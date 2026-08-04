@@ -1040,3 +1040,78 @@ def test_instance_scalar_values_reduces_vector_gate() -> None:
             dtype=np.float64,
         ),
     )
+
+
+def test_prediction_records_include_binding_diagnostics() -> None:
+    instance = make_instance()
+
+    empty = generate_evidence_intervention(
+        [instance],
+        intervention="empty",
+    ).instances[0]
+
+    original = make_result(
+        [[0.1, 0.2, 0.7]]
+    )
+
+    intervened = make_result(
+        [[0.2, 0.5, 0.3]]
+    )
+
+    records = paired_prediction_records(
+        original_instances=[instance],
+        intervened_instances=[empty],
+        original_result=original,
+        intervened_result=intervened,
+        intervention_name="empty",
+        original_compatibility_scores=(
+            np.asarray([1.2])
+        ),
+        intervened_compatibility_scores=(
+            np.asarray([0.1])
+        ),
+        original_gate_values=np.asarray(
+            [[0.8]]
+        ),
+        intervened_gate_values=np.asarray(
+            [[0.0]]
+        ),
+    )
+
+    record = records[0]
+
+    assert (
+        record[
+            "original_compatibility_score"
+        ]
+        == pytest.approx(1.2)
+    )
+
+    assert (
+        record[
+            "intervened_compatibility_score"
+        ]
+        == pytest.approx(0.1)
+    )
+
+    assert (
+        record[
+            "compatibility_score_change"
+        ]
+        == pytest.approx(-1.1)
+    )
+
+    assert (
+        record["original_gate_value"]
+        == pytest.approx(0.8)
+    )
+
+    assert (
+        record["intervened_gate_value"]
+        == pytest.approx(0.0)
+    )
+
+    assert (
+        record["gate_value_change"]
+        == pytest.approx(-0.8)
+    )
