@@ -1,0 +1,35 @@
+schema_version: "1.0"
+
+description: >
+  Zero-shot Qwen2.5-7B-Instruct structured ABSA pilot
+  using a deterministic stratified validation subset.
+
+model:
+  name: qwen25_structured_absa
+  parameters:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    local_files_only: true
+    dtype: bfloat16
+    device_map: auto
+    prompt_mode: joint_evidence_sentiment_confidence
+    strict_output_keys: true
+    maximum_input_length: 2048
+    maximum_new_tokens: 128
+    do_sample: false
+
+data:
+  processed_root: data/processed
+  domain: laptops
+  split: validation
+  pilot_instances_per_label: 4
+
+evaluation:
+  batch_size: 1
+  save_raw_generations: true
+  save_parse_failures: true
+  report_recoverable_compliance: true
+
+output:
+  root: artifacts/experiments
+  experiment_name: qwen25_7b_zero_shot_laptops_pilot
+  overwrite: false
