@@ -591,6 +591,449 @@ def validate_checkpoint_parameters(
     )
 
 
+def compatibility_payload(
+    result,
+) -> dict[str, Any] | None:
+    scores = getattr(
+        result,
+        "compatibility_scores",
+        None,
+    )
+
+    if scores is None:
+        return None
+
+    scores = np.asarray(
+        scores,
+        dtype=np.float64,
+    ).reshape(-1)
+
+    evidence_available = np.asarray(
+        result.evidence_available,
+        dtype=bool,
+    ).reshape(-1)
+
+    if scores.shape != (
+        evidence_available.shape
+    ):
+        raise ValueError(
+            "Compatibility scores and evidence "
+            "availability must have equal shapes"
+        )
+
+    available_scores = scores[
+        evidence_available
+    ]
+
+    payload: dict[str, Any] = {
+        "number_of_instances": int(
+            scores.size
+        ),
+        "number_available": int(
+            evidence_available.sum()
+        ),
+        "mean": float(scores.mean()),
+        "standard_deviation": float(
+            scores.std()
+        ),
+        "minimum": float(scores.min()),
+        "maximum": float(scores.max()),
+        "mean_available": None,
+        "available_standard_deviation": None,
+        "minimum_available": None,
+        "maximum_available": None,
+    }
+
+    if available_scores.size:
+        payload.update(
+            {
+                "mean_available": float(
+                    available_scores.mean()
+                ),
+                "available_standard_deviation": (
+                    float(
+                        available_scores.std()
+                    )
+                ),
+                "minimum_available": float(
+                    available_scores.min()
+                ),
+                "maximum_available": float(
+                    available_scores.max()
+                ),
+            }
+        )
+
+    return payload
+
+
+def instance_scalar_values(
+    values: np.ndarray,
+    *,
+    name: str,
+) -> np.ndarray:
+    array = np.asarray(
+        values,
+        dtype=np.float64,
+    )
+
+    if array.ndim == 1:
+        return array
+
+    if array.ndim == 2:
+        return array.mean(axis=1)
+
+    raise ValueError(
+        f"{name} must have one or two "
+        "dimensions"
+    )
+
+
+def evidence_selection_changed_mask(
+    original_instances,
+    intervened_instances,
+) -> np.ndarray:
+    if len(original_instances) != len(
+        intervened_instances
+    ):
+        raise ValueError(
+            "Original and intervened instance "
+            "counts do not match"
+        )
+
+    changed = []
+
+    for original, intervened in zip(
+        original_instances,
+        intervened_instances,
+        strict=True,
+    ):
+        if (
+            original.instance_id
+            != intervened.instance_id
+        ):
+            raise ValueError(
+                "Intervention changed instance "
+                "ordering or identity"
+            )
+
+        changed.append(
+            tuple(
+                original
+                .selected_evidence_indices
+            )
+            != tuple(
+                intervened
+                .selected_evidence_indices
+            )
+        )
+
+    return np.asarray(
+        changed,
+        dtype=bool,
+    )
+
+
+def compatibility_comparison_payload(
+    *,
+    original_result,
+    intervened_result,
+    original_instances,
+    intervened_instances,
+    ranking_margin: float,
+) -> dict[str, Any] | None:
+    if ranking_margin < 0.0:
+        raise ValueError(
+            "ranking_margin must be "
+            "non-negative"
+        )
+
+    original_scores = getattr(
+        original_result,
+        "compatibility_scores",
+        None,
+    )
+
+    intervened_scores = getattr(
+        intervened_result,
+        "compatibility_scores",
+        None,
+    )
+
+    if (
+        original_scores is None
+        or intervened_scores is None
+    ):
+        return None
+
+    original_scores = np.asarray(
+        original_scores,
+        dtype=np.float64,
+    ).reshape(-1)
+
+    intervened_scores = np.asarray(
+        intervened_scores,
+        dtype=np.float64,
+    ).reshape(-1)
+
+    original_available = np.asarray(
+        original_result.evidence_available,
+        dtype=bool,
+    ).reshape(-1)
+
+    intervened_available = np.asarray(
+        intervened_result.evidence_available,
+        dtype=bool,
+    ).reshape(-1)
+
+    original_labels = np.asarray(
+        original_result.labels,
+        dtype=np.int64,
+    ).reshape(-1)
+
+    intervened_labels = np.asarray(
+        intervened_result.labels,
+        dtype=np.int64,
+    ).reshape(-1)
+
+    number_of_instances = len(
+        original_instances
+    )
+
+    expected_shape = (
+        number_of_instances,
+    )
+
+    arrays = {
+        "original_scores": original_scores,
+        "intervened_scores": (
+            intervened_scores
+        ),
+        "original_available": (
+            original_available
+        ),
+        "intervened_available": (
+            intervened_available
+        ),
+        "original_labels": original_labels,
+        "intervened_labels": (
+            intervened_labels
+        ),
+    }
+
+    for name, array in arrays.items():
+        if array.shape != expected_shape:
+            raise ValueError(
+                f"{name} does not match the "
+                "instance count"
+            )
+
+    if not np.array_equal(
+        original_labels,
+        intervened_labels,
+    ):
+        raise ValueError(
+            "Original and intervened labels "
+            "do not match"
+        )
+
+    changed = (
+        evidence_selection_changed_mask(
+            original_instances,
+            intervened_instances,
+        )
+    )
+
+    valid = (
+        original_available
+        & intervened_available
+        & changed
+    )
+
+    number_valid = int(valid.sum())
+
+    payload: dict[str, Any] = {
+        "ranking_margin": float(
+            ranking_margin
+        ),
+        "number_of_instances": (
+            number_of_instances
+        ),
+        "number_changed": int(
+            changed.sum()
+        ),
+        "number_valid": number_valid,
+        "valid_rate": float(
+            number_valid
+            / number_of_instances
+        ),
+        "mean_score_margin": None,
+        "median_score_margin": None,
+        "score_margin_standard_deviation": (
+            None
+        ),
+        "minimum_score_margin": None,
+        "maximum_score_margin": None,
+        "positive_score_margin_rate": None,
+        "ranking_satisfaction_rate": None,
+        "mean_gate_margin": None,
+        "median_gate_margin": None,
+        "mean_gold_probability_advantage": (
+            None
+        ),
+        "median_gold_probability_advantage": (
+            None
+        ),
+        "positive_gold_probability_advantage_rate": (
+            None
+        ),
+    }
+
+    if number_valid == 0:
+        return payload
+
+    score_margin = (
+        original_scores[valid]
+        - intervened_scores[valid]
+    )
+
+    original_gates = instance_scalar_values(
+        original_result.gate_values,
+        name="original gate values",
+    )
+
+    intervened_gates = instance_scalar_values(
+        intervened_result.gate_values,
+        name="intervened gate values",
+    )
+
+    if (
+        original_gates.shape
+        != expected_shape
+        or intervened_gates.shape
+        != expected_shape
+    ):
+        raise ValueError(
+            "Gate values do not match the "
+            "instance count"
+        )
+
+    gate_margin = (
+        original_gates[valid]
+        - intervened_gates[valid]
+    )
+
+    original_probabilities = np.asarray(
+        original_result
+        .combined_probabilities,
+        dtype=np.float64,
+    )
+
+    intervened_probabilities = np.asarray(
+        intervened_result
+        .combined_probabilities,
+        dtype=np.float64,
+    )
+
+    if (
+        original_probabilities.shape[0]
+        != number_of_instances
+        or intervened_probabilities.shape[0]
+        != number_of_instances
+    ):
+        raise ValueError(
+            "Combined probabilities do not "
+            "match the instance count"
+        )
+
+    row_indices = np.arange(
+        number_of_instances
+    )
+
+    original_gold_probabilities = (
+        original_probabilities[
+            row_indices,
+            original_labels,
+        ]
+    )
+
+    intervened_gold_probabilities = (
+        intervened_probabilities[
+            row_indices,
+            original_labels,
+        ]
+    )
+
+    gold_probability_advantage = (
+        original_gold_probabilities[valid]
+        - intervened_gold_probabilities[valid]
+    )
+
+    payload.update(
+        {
+            "mean_score_margin": float(
+                score_margin.mean()
+            ),
+            "median_score_margin": float(
+                np.median(score_margin)
+            ),
+            "score_margin_standard_deviation": (
+                float(score_margin.std())
+            ),
+            "minimum_score_margin": float(
+                score_margin.min()
+            ),
+            "maximum_score_margin": float(
+                score_margin.max()
+            ),
+            "positive_score_margin_rate": (
+                float(
+                    (
+                        score_margin > 0.0
+                    ).mean()
+                )
+            ),
+            "ranking_satisfaction_rate": (
+                float(
+                    (
+                        score_margin
+                        >= ranking_margin
+                    ).mean()
+                )
+            ),
+            "mean_gate_margin": float(
+                gate_margin.mean()
+            ),
+            "median_gate_margin": float(
+                np.median(gate_margin)
+            ),
+            "mean_gold_probability_advantage": (
+                float(
+                    gold_probability_advantage
+                    .mean()
+                )
+            ),
+            "median_gold_probability_advantage": (
+                float(
+                    np.median(
+                        gold_probability_advantage
+                    )
+                )
+            ),
+            "positive_gold_probability_advantage_rate": (
+                float(
+                    (
+                        gold_probability_advantage
+                        > 0.0
+                    ).mean()
+                )
+            ),
+        }
+    )
+
+    return payload
+
+
 def paired_prediction_records(
     *,
     original_instances,
@@ -857,6 +1300,32 @@ def run_intervention_evaluation(
             "Unsupported evidence checkpoint "
             f"type: {checkpoint_type!r}"
         )
+
+    ranking_margin = 0.0
+
+    if checkpoint_type == (
+        "counterfactual_evidence_"
+        "binding_transformer"
+    ):
+        counterfactual_parameters = dict(
+            checkpoint.get(
+                "counterfactual_loss_parameters",
+                {},
+            )
+        )
+
+        ranking_margin = float(
+            counterfactual_parameters.get(
+                "ranking_margin",
+                0.2,
+            )
+        )
+
+        if ranking_margin < 0.0:
+            raise ValueError(
+                "Checkpoint ranking_margin "
+                "must be non-negative"
+            )
 
     model_parameters = (
         validate_checkpoint_parameters(
@@ -1372,6 +1841,14 @@ def run_intervention_evaluation(
         "intervention_seed": (
             intervention_seed
         ),
+        "ranking_margin": (
+            ranking_margin
+            if checkpoint_type == (
+                "counterfactual_evidence_"
+                "binding_transformer"
+            )
+            else None
+        ),
         "number_of_instances": len(
             original_instances
         ),
@@ -1399,6 +1876,26 @@ def run_intervention_evaluation(
 
         current_heads = (
             evaluation_head_results[name]
+        )
+
+        compatibility_comparison = (
+            compatibility_comparison_payload(
+                original_result=(
+                    original_result
+                ),
+                intervened_result=(
+                    evaluation
+                ),
+                original_instances=(
+                    original_instances
+                ),
+                intervened_instances=(
+                    generated.instances
+                ),
+                ranking_margin=(
+                    ranking_margin
+                ),
+            )
         )
 
         head_payloads: dict[
@@ -1485,6 +1982,14 @@ def run_intervention_evaluation(
             "heads": head_payloads,
             "gate": binding_gate_payload(
                 evaluation
+            ),
+            "compatibility": (
+                compatibility_payload(
+                    evaluation
+                )
+            ),
+            "compatibility_comparison": (
+                compatibility_comparison
             ),
         }
 
@@ -1614,6 +2119,14 @@ def run_intervention_evaluation(
             },
             "gate": binding_gate_payload(
                 evaluation
+            ),
+            "compatibility": (
+                compatibility_payload(
+                    evaluation
+                )
+            ),
+            "compatibility_comparison": (
+                compatibility_comparison
             ),
         }
 

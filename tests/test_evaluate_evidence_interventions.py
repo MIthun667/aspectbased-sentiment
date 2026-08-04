@@ -692,3 +692,351 @@ def test_normalized_counterfactual_binding_heads() -> None:
         .metrics["macro_f1"]
         == 0.8
     )
+
+
+def test_compatibility_payload() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_payload,
+    )
+
+    result = SimpleNamespace(
+        compatibility_scores=np.asarray(
+            [-1.0, 0.5, 1.5],
+            dtype=np.float64,
+        ),
+        evidence_available=np.asarray(
+            [False, True, True],
+            dtype=bool,
+        ),
+    )
+
+    payload = compatibility_payload(
+        result
+    )
+
+    assert payload is not None
+
+    assert (
+        payload["number_of_instances"]
+        == 3
+    )
+
+    assert payload["number_available"] == 2
+
+    assert payload["mean"] == pytest.approx(
+        1.0 / 3.0
+    )
+
+    assert (
+        payload["mean_available"]
+        == pytest.approx(1.0)
+    )
+
+    assert (
+        payload["minimum_available"]
+        == pytest.approx(0.5)
+    )
+
+    assert (
+        payload["maximum_available"]
+        == pytest.approx(1.5)
+    )
+
+
+def test_compatibility_payload_absent_for_vector_gate() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_payload,
+    )
+
+    result = SimpleNamespace(
+        compatibility_scores=None,
+    )
+
+    assert compatibility_payload(result) is None
+
+
+def test_compatibility_payload_rejects_shape_mismatch() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_payload,
+    )
+
+    result = SimpleNamespace(
+        compatibility_scores=np.asarray(
+            [0.1, 0.2],
+            dtype=np.float64,
+        ),
+        evidence_available=np.asarray(
+            [True],
+            dtype=bool,
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="equal shapes",
+    ):
+        compatibility_payload(result)
+
+
+def make_compatibility_result(
+    *,
+    scores,
+    gates,
+    probabilities,
+    available,
+):
+    probability_array = np.asarray(
+        probabilities,
+        dtype=np.float64,
+    )
+
+    return SimpleNamespace(
+        compatibility_scores=np.asarray(
+            scores,
+            dtype=np.float64,
+        ),
+        gate_values=np.asarray(
+            gates,
+            dtype=np.float64,
+        ),
+        evidence_available=np.asarray(
+            available,
+            dtype=bool,
+        ),
+        labels=np.asarray(
+            [2, 0, 1],
+            dtype=np.int64,
+        ),
+        combined_probabilities=(
+            probability_array
+        ),
+    )
+
+
+def make_three_instances():
+    from dataclasses import replace
+
+    first = make_instance()
+
+    second = replace(
+        make_instance(),
+        instance_id="two",
+        sentence_id="two:sentence",
+        selected_evidence_indices=(1,),
+    )
+
+    third = replace(
+        make_instance(),
+        instance_id="three",
+        sentence_id="three:sentence",
+        selected_evidence_indices=(),
+        evidence_is_empty=True,
+    )
+
+    return [
+        first,
+        second,
+        third,
+    ]
+
+
+def test_compatibility_comparison_payload() -> None:
+    from dataclasses import replace
+
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_comparison_payload,
+    )
+
+    original_instances = (
+        make_three_instances()
+    )
+
+    intervened_instances = [
+        replace(
+            original_instances[0],
+            selected_evidence_indices=(1,),
+        ),
+        replace(
+            original_instances[1],
+            selected_evidence_indices=(2,),
+        ),
+        original_instances[2],
+    ]
+
+    original = make_compatibility_result(
+        scores=[1.0, 0.8, -1.0],
+        gates=[
+            [0.8],
+            [0.7],
+            [0.0],
+        ],
+        probabilities=[
+            [0.1, 0.1, 0.8],
+            [0.7, 0.2, 0.1],
+            [0.2, 0.6, 0.2],
+        ],
+        available=[
+            True,
+            True,
+            False,
+        ],
+    )
+
+    intervened = make_compatibility_result(
+        scores=[0.5, 0.7, -1.0],
+        gates=[
+            [0.6],
+            [0.65],
+            [0.0],
+        ],
+        probabilities=[
+            [0.2, 0.2, 0.6],
+            [0.6, 0.3, 0.1],
+            [0.2, 0.6, 0.2],
+        ],
+        available=[
+            True,
+            True,
+            False,
+        ],
+    )
+
+    payload = (
+        compatibility_comparison_payload(
+            original_result=original,
+            intervened_result=intervened,
+            original_instances=(
+                original_instances
+            ),
+            intervened_instances=(
+                intervened_instances
+            ),
+            ranking_margin=0.2,
+        )
+    )
+
+    assert payload is not None
+    assert payload["number_changed"] == 2
+    assert payload["number_valid"] == 2
+
+    assert (
+        payload["mean_score_margin"]
+        == pytest.approx(0.3)
+    )
+
+    assert (
+        payload["median_score_margin"]
+        == pytest.approx(0.3)
+    )
+
+    assert (
+        payload[
+            "positive_score_margin_rate"
+        ]
+        == 1.0
+    )
+
+    assert (
+        payload[
+            "ranking_satisfaction_rate"
+        ]
+        == pytest.approx(0.5)
+    )
+
+    assert (
+        payload["mean_gate_margin"]
+        == pytest.approx(0.125)
+    )
+
+    assert (
+        payload[
+            "mean_gold_probability_advantage"
+        ]
+        == pytest.approx(0.15)
+    )
+
+
+def test_compatibility_comparison_requires_changed_evidence() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_comparison_payload,
+    )
+
+    instances = make_three_instances()
+
+    original = make_compatibility_result(
+        scores=[1.0, 0.8, -1.0],
+        gates=[[0.8], [0.7], [0.0]],
+        probabilities=[
+            [0.1, 0.1, 0.8],
+            [0.7, 0.2, 0.1],
+            [0.2, 0.6, 0.2],
+        ],
+        available=[True, True, False],
+    )
+
+    payload = (
+        compatibility_comparison_payload(
+            original_result=original,
+            intervened_result=original,
+            original_instances=instances,
+            intervened_instances=instances,
+            ranking_margin=0.2,
+        )
+    )
+
+    assert payload is not None
+    assert payload["number_changed"] == 0
+    assert payload["number_valid"] == 0
+
+    assert (
+        payload["mean_score_margin"]
+        is None
+    )
+
+
+def test_compatibility_comparison_absent_for_vector_gate() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        compatibility_comparison_payload,
+    )
+
+    instances = make_three_instances()
+
+    result = SimpleNamespace(
+        compatibility_scores=None,
+    )
+
+    assert (
+        compatibility_comparison_payload(
+            original_result=result,
+            intervened_result=result,
+            original_instances=instances,
+            intervened_instances=instances,
+            ranking_margin=0.2,
+        )
+        is None
+    )
+
+
+def test_instance_scalar_values_reduces_vector_gate() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        instance_scalar_values,
+    )
+
+    values = instance_scalar_values(
+        np.asarray(
+            [
+                [0.2, 0.4],
+                [0.6, 0.8],
+            ],
+            dtype=np.float64,
+        ),
+        name="gate",
+    )
+
+    assert np.allclose(
+        values,
+        np.asarray(
+            [0.3, 0.7],
+            dtype=np.float64,
+        ),
+    )

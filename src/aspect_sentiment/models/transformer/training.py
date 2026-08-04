@@ -959,6 +959,9 @@ class EvidenceBindingEvaluationResult:
     labels: np.ndarray
     evidence_available: np.ndarray
 
+    gate_values: np.ndarray
+    compatibility_scores: np.ndarray | None
+
     mean_gate_value: float
     gate_standard_deviation: float
     mean_available_gate_value: float | None
@@ -1582,6 +1585,13 @@ def evaluate_evidence_binding_model(
         np.ndarray
     ] = []
     gate_batches: list[np.ndarray] = []
+    compatibility_score_batches: list[
+        np.ndarray
+    ] = []
+
+    compatibility_scores_present: (
+        bool | None
+    ) = None
 
     autocast_enabled = (
         use_bfloat16
@@ -1739,6 +1749,39 @@ def evaluate_evidence_binding_model(
             .numpy()
         )
 
+        compatibility_score = getattr(
+            output,
+            "compatibility_score",
+            None,
+        )
+
+        current_has_compatibility = (
+            compatibility_score is not None
+        )
+
+        if compatibility_scores_present is None:
+            compatibility_scores_present = (
+                current_has_compatibility
+            )
+        elif (
+            compatibility_scores_present
+            != current_has_compatibility
+        ):
+            raise RuntimeError(
+                "Evaluation batches produced an "
+                "inconsistent compatibility-score "
+                "contract"
+            )
+
+        if compatibility_score is not None:
+            compatibility_score_batches.append(
+                compatibility_score
+                .float()
+                .reshape(-1)
+                .cpu()
+                .numpy()
+            )
+
     if total_instances == 0:
         raise ValueError(
             "Evaluation loader produced no instances"
@@ -1773,6 +1816,22 @@ def evaluate_evidence_binding_model(
         gate_batches,
         axis=0,
     )
+
+    compatibility_scores = None
+
+    if compatibility_score_batches:
+        compatibility_scores = np.concatenate(
+            compatibility_score_batches,
+            axis=0,
+        )
+
+        if compatibility_scores.shape != (
+            total_instances,
+        ):
+            raise RuntimeError(
+                "Compatibility-score count does "
+                "not match evaluated instances"
+            )
 
     combined_predictions = (
         combined_probabilities.argmax(
@@ -1908,6 +1967,10 @@ def evaluate_evidence_binding_model(
         labels=labels,
         evidence_available=(
             evidence_available
+        ),
+        gate_values=gate_values,
+        compatibility_scores=(
+            compatibility_scores
         ),
         mean_gate_value=float(
             gate_values.mean()
