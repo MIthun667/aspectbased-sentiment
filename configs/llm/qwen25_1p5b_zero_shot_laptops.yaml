@@ -1,0 +1,40 @@
+schema_version: "1.0"
+
+description: >
+  Frozen zero-shot Qwen2.5-1.5B-Instruct baseline for
+  target-conditioned aspect sentiment classification with
+  extractive evidence indices and self-reported confidence.
+
+model:
+  name: qwen25_structured_absa
+  parameters:
+    model_name_or_path: Qwen/Qwen2.5-1.5B-Instruct
+    local_files_only: true
+    torch_dtype: bfloat16
+    device_map: auto
+
+    prompt_mode: joint_evidence_sentiment_confidence
+    strict_output_keys: true
+
+    maximum_input_length: 2048
+    maximum_new_tokens: 64
+
+    do_sample: false
+    temperature: null
+    top_p: null
+
+data:
+  processed_root: data/processed
+  domain: laptops
+  split: validation
+
+evaluation:
+  batch_size: 1
+  save_raw_generations: true
+  save_predictions: true
+  save_parse_failures: true
+
+output:
+  root: artifacts/experiments
+  experiment_name: qwen25_1p5b_zero_shot_laptops
+  overwrite: false
