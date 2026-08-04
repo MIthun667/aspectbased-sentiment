@@ -9,6 +9,14 @@ from .evidence_dataset import (
     evidence_split_path,
     join_canonical_and_evidence_records,
 )
+from .evidence_utility_dataset import (
+    HARM_TARGET_SCHEMA_VERSION,
+    EvidenceHarmTarget,
+    EvidenceHarmTargetDataset,
+    index_harm_targets,
+    load_harm_target_jsonl,
+    parse_harm_target_record,
+)
 from .loader import (
     canonical_split_path,
     load_canonical_split,
@@ -24,6 +32,12 @@ __all__ = [
     "EvidenceAwareInstance",
     "evidence_split_path",
     "join_canonical_and_evidence_records",
+    "HARM_TARGET_SCHEMA_VERSION",
+    "EvidenceHarmTarget",
+    "EvidenceHarmTargetDataset",
+    "index_harm_targets",
+    "load_harm_target_jsonl",
+    "parse_harm_target_record",
     "canonical_split_path",
     "load_canonical_split",
     "load_jsonl",
