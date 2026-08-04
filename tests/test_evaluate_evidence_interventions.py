@@ -557,3 +557,138 @@ def test_binding_head_supports_prediction_records() -> None:
     assert records[0][
         "gold_probability_change"
     ] == pytest.approx(-0.4)
+
+
+def valid_compatibility_binding_parameters():
+    return {
+        "number_of_classes": 3,
+        "dropout": 0.1,
+        "compatibility_dimension": 256,
+        "counterfactual_seed": 2026,
+        "maximum_length": 128,
+        "evidence_root": (
+            "data/derived/evidence"
+        ),
+        "reject_truncation": True,
+        "dtype": "float32",
+    }
+
+
+def test_valid_compatibility_binding_parameters() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        validate_compatibility_binding_model_parameters,
+    )
+
+    parameters = (
+        valid_compatibility_binding_parameters()
+    )
+
+    assert (
+        validate_compatibility_binding_model_parameters(
+            parameters
+        )
+        == parameters
+    )
+
+
+def test_compatibility_parameters_require_dimension() -> None:
+    from scripts.evaluate_evidence_interventions import (
+        validate_compatibility_binding_model_parameters,
+    )
+
+    parameters = (
+        valid_compatibility_binding_parameters()
+    )
+
+    del parameters[
+        "compatibility_dimension"
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="missing",
+    ):
+        validate_compatibility_binding_model_parameters(
+            parameters
+        )
+
+
+def test_counterfactual_checkpoint_dispatch() -> None:
+    parameters = (
+        valid_compatibility_binding_parameters()
+    )
+
+    assert (
+        validate_checkpoint_parameters(
+            (
+                "counterfactual_evidence_"
+                "binding_transformer"
+            ),
+            parameters,
+        )
+        == parameters
+    )
+
+
+def test_normalized_counterfactual_binding_heads() -> None:
+    labels = np.asarray(
+        [2],
+        dtype=np.int64,
+    )
+
+    result = SimpleNamespace(
+        combined_metrics={
+            "macro_f1": 0.8,
+        },
+        context_metrics={
+            "macro_f1": 0.7,
+        },
+        evidence_metrics={
+            "macro_f1": 0.6,
+        },
+        combined_predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        context_predictions=np.asarray(
+            [2],
+            dtype=np.int64,
+        ),
+        evidence_predictions=np.asarray(
+            [1],
+            dtype=np.int64,
+        ),
+        combined_probabilities=np.asarray(
+            [[0.1, 0.1, 0.8]],
+            dtype=np.float64,
+        ),
+        context_probabilities=np.asarray(
+            [[0.1, 0.2, 0.7]],
+            dtype=np.float64,
+        ),
+        evidence_probabilities=np.asarray(
+            [[0.1, 0.6, 0.3]],
+            dtype=np.float64,
+        ),
+        labels=labels,
+    )
+
+    heads = normalized_evaluation_heads(
+        result,
+        checkpoint_type=(
+            "counterfactual_evidence_"
+            "binding_transformer"
+        ),
+    )
+
+    assert set(heads) == {
+        "combined",
+        "context",
+        "evidence",
+    }
+
+    assert (
+        heads["combined"]
+        .metrics["macro_f1"]
+        == 0.8
+    )

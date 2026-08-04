@@ -57,8 +57,10 @@ from src.aspect_sentiment.models.transformer import (
     EvidenceAwareTransformerClassifier,
     EvidenceBindingLoss,
     EvidenceBindingTransformerClassifier,
+    EvidenceCompatibilityBindingTransformerClassifier,
     evaluate_evidence_binding_model,
     evaluate_evidence_transformer_model,
+    load_counterfactual_binding_checkpoint,
     load_evidence_binding_checkpoint,
     load_evidence_transformer_checkpoint,
 )
@@ -81,6 +83,10 @@ SUPPORTED_CHECKPOINT_TYPES = frozenset(
     {
         "evidence_transformer",
         "evidence_binding_transformer",
+        (
+            "counterfactual_evidence_"
+            "binding_transformer"
+        ),
     }
 )
 
@@ -108,9 +114,13 @@ def normalized_evaluation_heads(
             )
         }
 
-    if checkpoint_type == (
-        "evidence_binding_transformer"
-    ):
+    if checkpoint_type in {
+        "evidence_binding_transformer",
+        (
+            "counterfactual_evidence_"
+            "binding_transformer"
+        ),
+    }:
         heads = {
             "combined": InterventionHeadResult(
                 metrics=dict(
@@ -159,6 +169,16 @@ def normalized_evaluation_heads(
         )
 
         return heads
+
+    if checkpoint_type == (
+        "counterfactual_evidence_"
+        "binding_transformer"
+    ):
+        return (
+            validate_compatibility_binding_model_parameters(
+                parameters
+            )
+        )
 
     raise ValueError(
         "Unsupported checkpoint type: "
@@ -489,6 +509,54 @@ def validate_binding_model_parameters(
     return parameters
 
 
+def validate_compatibility_binding_model_parameters(
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    required = {
+        "number_of_classes",
+        "dropout",
+        "compatibility_dimension",
+        "maximum_length",
+        "evidence_root",
+        "reject_truncation",
+        "dtype",
+    }
+
+    missing = sorted(
+        required - set(parameters)
+    )
+
+    if missing:
+        raise ValueError(
+            "Compatibility binding model "
+            f"parameters are missing: {missing}"
+        )
+
+    if int(
+        parameters["number_of_classes"]
+    ) <= 1:
+        raise ValueError(
+            "number_of_classes must exceed one"
+        )
+
+    if int(
+        parameters["compatibility_dimension"]
+    ) <= 0:
+        raise ValueError(
+            "compatibility_dimension must be "
+            "positive"
+        )
+
+    if int(
+        parameters["maximum_length"]
+    ) <= 0:
+        raise ValueError(
+            "maximum_length must be positive"
+        )
+
+    return parameters
+
+
 def validate_checkpoint_parameters(
     checkpoint_type: str,
     parameters: dict[str, Any],
@@ -505,6 +573,16 @@ def validate_checkpoint_parameters(
     ):
         return validate_binding_model_parameters(
             parameters
+        )
+
+    if checkpoint_type == (
+        "counterfactual_evidence_"
+        "binding_transformer"
+    ):
+        return (
+            validate_compatibility_binding_model_parameters(
+                parameters
+            )
         )
 
     raise ValueError(
@@ -942,7 +1020,9 @@ def run_intervention_evaluation(
 
         loss_function = nn.CrossEntropyLoss()
 
-    else:
+    elif checkpoint_type == (
+        "evidence_binding_transformer"
+    ):
         model = (
             EvidenceBindingTransformerClassifier
             .from_pretrained(
@@ -981,39 +1061,109 @@ def run_intervention_evaluation(
             )
         )
 
-        binding_objective = (
-            EvidenceBindingLoss(
-                combined_weight=float(
-                    loss_parameters.get(
-                        "combined_weight",
-                        1.0,
-                    )
+        binding_objective = EvidenceBindingLoss(
+            combined_weight=float(
+                loss_parameters.get(
+                    "combined_weight",
+                    1.0,
+                )
+            ),
+            context_weight=float(
+                loss_parameters.get(
+                    "context_weight",
+                    0.0,
+                )
+            ),
+            evidence_weight=float(
+                loss_parameters.get(
+                    "evidence_weight",
+                    0.0,
+                )
+            ),
+            agreement_weight=float(
+                loss_parameters.get(
+                    "agreement_weight",
+                    0.0,
+                )
+            ),
+            agreement_temperature=float(
+                loss_parameters.get(
+                    "agreement_temperature",
+                    1.0,
+                )
+            ),
+        )
+
+    else:
+        model = (
+            EvidenceCompatibilityBindingTransformerClassifier
+            .from_pretrained(
+                model_name_or_path,
+                number_of_classes=int(
+                    model_parameters[
+                        "number_of_classes"
+                    ]
                 ),
-                context_weight=float(
-                    loss_parameters.get(
-                        "context_weight",
-                        0.0,
-                    )
+                dropout=float(
+                    model_parameters["dropout"]
                 ),
-                evidence_weight=float(
-                    loss_parameters.get(
-                        "evidence_weight",
-                        0.0,
-                    )
+                compatibility_dimension=int(
+                    model_parameters[
+                        "compatibility_dimension"
+                    ]
                 ),
-                agreement_weight=float(
-                    loss_parameters.get(
-                        "agreement_weight",
-                        0.0,
-                    )
+                local_files_only=(
+                    local_files_only
                 ),
-                agreement_temperature=float(
-                    loss_parameters.get(
-                        "agreement_temperature",
-                        1.0,
-                    )
-                ),
+                dtype=torch.float32,
             )
+            .to(device)
+        )
+
+        load_counterfactual_binding_checkpoint(
+            path=checkpoint_path,
+            model=model,
+            device=device,
+        )
+
+        loss_parameters = dict(
+            checkpoint.get(
+                "base_loss_parameters",
+                {},
+            )
+        )
+
+        binding_objective = EvidenceBindingLoss(
+            combined_weight=float(
+                loss_parameters.get(
+                    "combined_weight",
+                    1.0,
+                )
+            ),
+            context_weight=float(
+                loss_parameters.get(
+                    "context_weight",
+                    0.0,
+                )
+            ),
+            evidence_weight=float(
+                loss_parameters.get(
+                    "evidence_weight",
+                    0.0,
+                )
+            ),
+            agreement_weight=float(
+                loss_parameters.get(
+                    "agreement_weight",
+                    0.0,
+                )
+            ),
+            agreement_temperature=float(
+                loss_parameters.get(
+                    "agreement_temperature",
+                    1.0,
+                )
+            ),
         )
 
     output_root = (
