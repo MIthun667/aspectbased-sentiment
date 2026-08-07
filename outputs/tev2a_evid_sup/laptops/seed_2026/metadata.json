@@ -1,0 +1,45 @@
+{
+  "experiment_name": "tev2a_evid_sup",
+  "model_name": "TargetEvidenceV2Model",
+  "domain": "laptops",
+  "seed": 2026,
+  "timestamp": "2026-08-07T18:18:42.464213",
+  "git_commit_sha": "ce52cf67e92f27c05856f2b592112f05e740c62c",
+  "hyperparameters": {
+    "batch_size": 16,
+    "learning_rate": 2e-05,
+    "epochs": 10,
+    "max_length": 128,
+    "max_dependency_distance": 10,
+    "use_distance_embedding": true,
+    "weight_decay": 0.01,
+    "gate_statistics_val": {
+      "mean_gate": 0.1193121001124382,
+      "std_gate": 0.0002156234550056979,
+      "min_gate": 0.11893955618143082,
+      "max_gate": 0.11986414343118668,
+      "median_gate": 0.11933660507202148
+    }
+  },
+  "best_checkpoint": "/home/mithon-hossain/aspectbased-sentiment/outputs/tev2a_evid_sup/laptops/seed_2026/checkpoint-1089",
+  "best_validation_metric": 0.7890571321114893,
+  "best_epoch": 10.0,
+  "validation_metrics": {
+    "eval_loss": 1.2841566801071167,
+    "eval_accuracy": 0.8194842406876791,
+    "eval_macro_f1": 0.7890571321114893,
+    "eval_runtime": 0.8464,
+    "eval_samples_per_second": 412.329,
+    "eval_steps_per_second": 12.996,
+    "epoch": 10.0
+  },
+  "test_metrics": {
+    "eval_loss": 1.3955121040344238,
+    "eval_accuracy": 0.8180379746835443,
+    "eval_macro_f1": 0.7837745032719413,
+    "eval_runtime": 1.4457,
+    "eval_samples_per_second": 437.149,
+    "eval_steps_per_second": 13.834,
+    "epoch": 10.0
+  }
+}

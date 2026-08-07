@@ -1,0 +1,72 @@
+{
+  "best_global_step": 121,
+  "best_metric": 0.7261117650355922,
+  "best_model_checkpoint": "/home/mithon-hossain/aspectbased-sentiment/outputs/test_smoke/laptops/seed_2026/checkpoint-121",
+  "epoch": 1.0,
+  "eval_steps": 500,
+  "global_step": 121,
+  "is_hyper_param_search": false,
+  "is_local_process_zero": true,
+  "is_world_process_zero": true,
+  "log_history": [
+    {
+      "epoch": 0.2066115702479339,
+      "grad_norm": 6.983606815338135,
+      "learning_rate": 1.6033057851239672e-05,
+      "loss": 1.0826385498046875,
+      "step": 25
+    },
+    {
+      "epoch": 0.4132231404958678,
+      "grad_norm": 17.38005828857422,
+      "learning_rate": 1.1900826446280993e-05,
+      "loss": 0.90716064453125,
+      "step": 50
+    },
+    {
+      "epoch": 0.6198347107438017,
+      "grad_norm": 20.73686408996582,
+      "learning_rate": 7.768595041322314e-06,
+      "loss": 0.6758974456787109,
+      "step": 75
+    },
+    {
+      "epoch": 0.8264462809917356,
+      "grad_norm": 23.94807243347168,
+      "learning_rate": 3.6363636363636366e-06,
+      "loss": 0.6799966430664063,
+      "step": 100
+    },
+    {
+      "epoch": 1.0,
+      "eval_accuracy": 0.7965616045845272,
+      "eval_loss": 0.5558930039405823,
+      "eval_macro_f1": 0.7261117650355922,
+      "eval_runtime": 0.6484,
+      "eval_samples_per_second": 538.265,
+      "eval_steps_per_second": 16.965,
+      "step": 121
+    }
+  ],
+  "logging_steps": 25,
+  "max_steps": 121,
+  "num_input_tokens_seen": 0,
+  "num_train_epochs": 1,
+  "save_steps": 500,
+  "stateful_callbacks": {
+    "TrainerControl": {
+      "args": {
+        "should_epoch_stop": false,
+        "should_evaluate": false,
+        "should_log": false,
+        "should_save": true,
+        "should_training_stop": true
+      },
+      "attributes": {}
+    }
+  },
+  "total_flos": 0.0,
+  "train_batch_size": 16,
+  "trial_name": null,
+  "trial_params": null
+}
