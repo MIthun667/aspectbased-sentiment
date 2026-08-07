@@ -236,7 +236,7 @@ def read_absc_instances(
 
             tokens = [str(token) for token in record["token"]]
             pos_tags = [str(tag) for tag in record["pos"]]
-            raw_heads = record["head"]
+            raw_heads = [int(head) for head in record["head"]]
             dependency_relations = [
                 str(relation) for relation in record["deprel"]
             ]

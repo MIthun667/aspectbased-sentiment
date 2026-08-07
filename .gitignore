@@ -38,3 +38,17 @@ Laptops_corenlp/
 Restaurants_corenlp/
 Tweets_corenlp/
 glove.txt
+
+# External reference repositories
+ABSA-PyTorch/
+RGAT-ABSA/
+
+# Local backups
+*.bak
+
+# Large training/checkpoint directories
+outputs/baseline/
+outputs/target_evidence/
+
+# Evidence diagnostic artifacts generated locally
+outputs/evidence_analysis/
