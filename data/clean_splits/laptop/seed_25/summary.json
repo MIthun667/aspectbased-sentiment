@@ -1,0 +1,21 @@
+{
+  "domain": "Laptop",
+  "seed": 25,
+  "val_size": 0.1,
+  "source_rows": 2082,
+  "train_rows": 1842,
+  "val_rows": 240,
+  "train_unique_sentences": 1213,
+  "val_unique_sentences": 135,
+  "sentence_overlap": 0,
+  "train_label_counts": {
+    "0": 693,
+    "1": 366,
+    "2": 783
+  },
+  "val_label_counts": {
+    "0": 93,
+    "1": 44,
+    "2": 103
+  }
+}

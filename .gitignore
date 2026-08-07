@@ -52,3 +52,28 @@ outputs/target_evidence/
 
 # Evidence diagnostic artifacts generated locally
 outputs/evidence_analysis/
+
+# Virtual environments
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# HuggingFace / training artifacts
+outputs/
+checkpoints/
+wandb/
+
+# Large model files
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
