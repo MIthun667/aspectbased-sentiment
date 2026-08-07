@@ -1,59 +1,80 @@
-# Aspect-Based Sentiment Analysis with Large Language Models
+# Aspect-Based Sentiment Analysis Research Framework
 
-A research-oriented framework for studying reliable target-conditioned
-reasoning in large language models using aspect-based sentiment analysis.
+This repository provides a controlled experimental environment for studying
+target-conditioned sentiment reasoning in Aspect-Based Sentiment Analysis
+(ABSA).
 
-The repository currently supports three domains:
+## Research Objective
 
-- Laptop reviews
-- Restaurant reviews
-- Twitter posts
+The project investigates how neural language models associate sentiment
+information with the correct aspect or target, particularly in sentences
+containing multiple competing sentiment signals.
 
-## Research Goal
+The repository intentionally separates:
 
-The broader objective is to investigate whether large language models bind
-sentiment evidence to the correct target rather than relying on globally
-salient or domain-specific sentiment cues.
+1. benchmark preparation,
+2. a strong sequence-pair Transformer baseline,
+3. future experimental architectures.
 
-The project will study:
+No proposed architecture is treated as correct by default.
 
-- target-specific evidence binding;
-- cross-domain generalization;
-- counterfactual intervention consistency;
-- syntax-guided LLM adaptation;
-- explanation faithfulness;
-- uncertainty and selective prediction;
-- robustness under linguistic and structural perturbations.
+## Datasets
 
-## Dataset Representation
+Three standard ABSA benchmarks are supported:
 
-Each processed example may contain:
+- SemEval Laptop
+- SemEval Restaurant
+- Twitter Target-Dependent Sentiment
 
-- tokenized text;
-- part-of-speech tags;
-- dependency heads;
-- dependency relation labels;
-- one or more target aspects;
-- aspect token boundaries;
-- sentiment polarity;
-- dependency shortest-path distances.
+The processed benchmark sizes are:
 
-The principal sentiment labels are:
+| Dataset | Train | Validation | Test |
+|---|---:|---:|---:|
+| Laptop | 1933 | 349 | 632 |
+| Restaurant | 3022 | 586 | 1119 |
+| Twitter | 5144 | 907 | 677 |
 
-- `positive`
-- `negative`
-- `neutral`
+Splits are performed at sentence level to prevent multi-aspect sentence
+leakage between training and validation.
 
-## Planned Repository Structure
+## Baseline
 
-```text
-configs/                         Experiment configurations
-docs/                            Research and dataset documentation
-notebooks/                       Exploratory analysis notebooks
-scripts/                         Command-line experiment scripts
-src/aspect_sentiment/data/       Dataset loading and validation
-src/aspect_sentiment/models/     Baselines and proposed models
-src/aspect_sentiment/evaluation/ Metrics and evaluation protocols
-src/aspect_sentiment/utils/      Shared utilities
-tests/                           Unit and integrity tests
-artifacts/                       Generated experiment outputs
+The reference baseline is RoBERTa-base using sequence-pair encoding:
+
+    sentence + aspect
+
+The aspect therefore conditions Transformer representations throughout the
+encoder.
+
+Current Laptop reference result:
+
+- Test Accuracy: 82.75%
+- Test Macro-F1: 79.89%
+
+This baseline is frozen and serves as the control condition for future
+experiments.
+
+## Research Principles
+
+Future proposed models must:
+
+- use the fixed benchmark splits;
+- compare against the same baseline protocol;
+- avoid test-set-driven architecture tuning;
+- isolate one research hypothesis per experiment;
+- include appropriate ablations;
+- distinguish benchmark performance from mechanistic claims.
+
+Historical Target-Evidence V1/V2 experiments are preserved in Git history
+and the archive/target-evidence-v1-v2 branch.
+
+## Repository Structure
+
+    data/               Processed benchmark metadata
+    scripts/            Dataset and baseline experiment commands
+    src/data/           Dataset parsing and graph utilities
+    src/models/         Future experimental models
+    src/evaluation/     Evaluation methods
+    src/training/       Training infrastructure
+    tests/              Integrity and model tests
+    outputs/            Local experiment artifacts
